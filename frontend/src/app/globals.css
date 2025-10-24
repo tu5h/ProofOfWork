@@ -1,7 +1,5 @@
+@import "tailwindcss";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import "tailwindcss";
-
-body { outline: 2px solid fuchsia; }

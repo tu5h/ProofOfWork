@@ -16,7 +16,7 @@ export default function Footer() {
               Built on Concordium for enterprise-grade security.
             </p>
             <a
-              href="https://github.com"
+              href="https://github.com/tu5h/ProofOfWork"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
@@ -29,34 +29,21 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4">Product</h4>
             <ul className="space-y-2">
-              <li><Link href="/features" className="hover:text-white transition-colors">Features</Link></li>
-              <li><Link href="/how-it-works" className="hover:text-white transition-colors">How It Works</Link></li>
-              <li><Link href="/use-cases" className="hover:text-white transition-colors">Use Cases</Link></li>
-              <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
+              <li><Link href="/Features" className="hover:text-white transition-colors">Features</Link></li>
+              <li><Link href="/HowItWorks" className="hover:text-white transition-colors">How It Works</Link></li>
+              <li><Link href="/UseCases" className="hover:text-white transition-colors">Use Cases</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="text-white font-semibold mb-4">Resources</h4>
             <ul className="space-y-2">
-              <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">API Reference</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Demo Video</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Contact Us</a></li>
+              <li><Link href="/DemoVideo" className="hover:text-white transition-colors">Demo Video</Link></li>
+              <li><Link href="/Contact" className="hover:text-white transition-colors">Contact Us</Link></li>
             </ul>
           </div>
         </div>
 
-        <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
-          <p className="text-sm">
-            © 2025 ProofOfWork. All rights reserved.
-          </p>
-          <div className="flex gap-6 text-sm">
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-white transition-colors">Cookie Policy</a>
-          </div>
-        </div>
       </div>
     </footer>
   );
