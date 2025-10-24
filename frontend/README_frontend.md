@@ -1,4 +1,5 @@
 Frontend (Demo App)
+
 web interface
 
 “Business Dashboard” → create a job with a target location + radius.
@@ -12,4 +13,4 @@ Compares with the business’s location rule.
 
 If valid, it triggers a payment release via Concordium (PLT tokens).
 
-Let's build this with React and Next.js
+Let's build this with React and Next.js---
