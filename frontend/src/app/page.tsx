@@ -147,7 +147,7 @@ export default function Home() {
             Join businesses worldwide using ProofOfWork to prevent fraud and verify locations
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="bg-white text-blue-600 px-8 py-4 rounded-lg hover:bg-gray-50 transition-all font-semibold text-lg shadow-xl">
+            <button className="bg-white text-blue-600 px-8 py-4 rounded-lg hover:bg-gray-50 transition-all font-semibold text-lg shadow-xl" onClick={handleClick}>
               Get Started Today
             </button>
             <button className="bg-blue-700 text-white px-8 py-4 rounded-lg hover:bg-blue-800 transition-all font-semibold text-lg border-2 border-white/20 flex items-center justify-center gap-2">
