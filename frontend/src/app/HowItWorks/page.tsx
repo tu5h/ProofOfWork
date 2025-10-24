@@ -53,7 +53,7 @@ export default function HowItWorks() {
                   3
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3 text-center">
-                  Payment Authorized
+                  Payment Authorized and Auto-Released
                 </h3>
                 <p className="text-gray-600 text-center leading-relaxed">
                   Based on your custom rules, the payment or service is automatically authorized
