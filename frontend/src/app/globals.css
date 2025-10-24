@@ -3,3 +3,20 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+body { outline: 2px solid fuchsia; }
+
+/* diagonal clip for medium+ screens */
+.clip-diagonal {
+  /* slanted right edge: tweak numbers to change angle */
+  clip-path: polygon(0 0, 65% 0, 45% 100%, 0 100%);
+  -webkit-clip-path: polygon(0 0, 100% 0, 78% 100%, 0 100%);
+}
+
+/* disable clipping on small screens so it stacks cleanly */
+@media (max-width: 767px) {
+  .clip-diagonal {
+    clip-path: none;
+    -webkit-clip-path: none;
+  }
+}
