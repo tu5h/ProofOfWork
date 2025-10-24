@@ -4,10 +4,10 @@ const { supabase, supabaseAdmin } = require('../config/supabase');
 const concordiumService = require('../services/concordiumService');
 
 // Get all jobs
-router.get('/jobs', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { status, business_id, worker_id } = req.query;
-    let query = supabase
+    let query = supabaseAdmin
       .from('jobs')
       .select(`
         *,
@@ -38,9 +38,9 @@ router.get('/jobs', async (req, res) => {
 });
 
 // Get job by ID
-router.get('/jobs/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('jobs')
       .select(`
         *,
@@ -75,12 +75,12 @@ router.get('/jobs/:id', async (req, res) => {
 });
 
 // Create new job
-router.post('/jobs', async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { business_id, title, description, amount_plt, location, radius_m } = req.body;
 
     // Verify business exists
-    const { data: business, error: businessError } = await supabase
+    const { data: business, error: businessError } = await supabaseAdmin
       .from('businesses')
       .select('id')
       .eq('id', business_id)
@@ -93,7 +93,7 @@ router.post('/jobs', async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('jobs')
       .insert({
         business_id,
@@ -112,7 +112,7 @@ router.post('/jobs', async (req, res) => {
     if (error) throw error;
 
     // Create escrow record
-    await supabase
+    await supabaseAdmin
       .from('escrows')
       .insert({
         job_id: data.id,
@@ -135,11 +135,11 @@ router.post('/jobs', async (req, res) => {
 });
 
 // Assign job to worker
-router.patch('/jobs/:id/assign', async (req, res) => {
+router.patch('/:id/assign', async (req, res) => {
   try {
     const { worker_id } = req.body;
 
-    const { data: job, error: jobError } = await supabase
+    const { data: job, error: jobError } = await supabaseAdmin
       .from('jobs')
       .select('status')
       .eq('id', req.params.id)
@@ -160,7 +160,7 @@ router.patch('/jobs/:id/assign', async (req, res) => {
     }
 
     // Verify worker exists
-    const { data: worker, error: workerError } = await supabase
+    const { data: worker, error: workerError } = await supabaseAdmin
       .from('workers')
       .select('id')
       .eq('id', worker_id)
@@ -173,7 +173,7 @@ router.patch('/jobs/:id/assign', async (req, res) => {
       });
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('jobs')
       .update({
         worker_id,
@@ -200,11 +200,11 @@ router.patch('/jobs/:id/assign', async (req, res) => {
 });
 
 // Complete job with location verification
-router.patch('/jobs/:id/complete', async (req, res) => {
+router.patch('/:id/complete', async (req, res) => {
   try {
     const { position } = req.body;
 
-    const { data: job, error: jobError } = await supabase
+    const { data: job, error: jobError } = await supabaseAdmin
       .from('jobs')
       .select(`
         *,
@@ -248,7 +248,7 @@ router.patch('/jobs/:id/complete', async (req, res) => {
     const distance = locationProof.distance;
 
     // Create location verification record
-    const { data: locationCheck, error: locationError } = await supabase
+    const { data: locationCheck, error: locationError } = await supabaseAdmin
       .from('location_checks')
       .insert({
         job_id: job.id,
@@ -265,7 +265,7 @@ router.patch('/jobs/:id/complete', async (req, res) => {
 
     // Update job status
     const newStatus = isWithinRadius ? 'completed' : 'cancelled';
-    const { data: updatedJob, error: updateError } = await supabase
+    const { data: updatedJob, error: updateError } = await supabaseAdmin
       .from('jobs')
       .update({
         status: newStatus,
@@ -287,7 +287,7 @@ router.patch('/jobs/:id/complete', async (req, res) => {
         );
 
         // Update escrow status
-        await supabase
+        await supabaseAdmin
           .from('escrows')
           .update({
             status: 'released',
@@ -298,7 +298,7 @@ router.patch('/jobs/:id/complete', async (req, res) => {
           .eq('job_id', job.id);
 
         // Update job status to paid
-        await supabase
+        await supabaseAdmin
           .from('jobs')
           .update({
             status: 'paid',
@@ -344,7 +344,7 @@ router.get('/jobs/nearby', async (req, res) => {
 
     // For now, we'll get all open jobs and filter by distance in the application
     // In a real implementation, you'd use PostGIS for spatial queries
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('jobs')
       .select(`
         *,
