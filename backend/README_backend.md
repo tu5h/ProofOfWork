@@ -1,4 +1,4 @@
-Smart Contract / Backend
+Smart Contract & Backend
 
 Job creation with:
 
