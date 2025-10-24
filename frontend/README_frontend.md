@@ -12,4 +12,4 @@ Compares with the business’s location rule.
 
 If valid, it triggers a payment release via Concordium (PLT tokens).
 
-Let's build this with React and Next.js
+Let's build this with React and Next.js natively.
