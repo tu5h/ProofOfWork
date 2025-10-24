@@ -2,9 +2,17 @@
 
 import { Shield } from 'lucide-react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 export default function Navbar() {
+  {/* Button Code */}
+  
+  const router = useRouter();
+  
+  const handleClick = (): void => {
+    router.push("/login");
+  }
+
   const pathname = usePathname();
 
   const isActive = (path: string) => {
@@ -37,7 +45,7 @@ export default function Navbar() {
           >
             Use Cases
           </Link>
-          <button className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+          <button className="bg-blue-600 text-white px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium" onClick={handleClick}>
             Get Started
           </button>
         </div>
