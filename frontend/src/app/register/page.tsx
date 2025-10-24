@@ -34,7 +34,7 @@ export default function RegisterPage() {
         </div>
       </section>
 
-      {/* RIGHT / login */}
+      {/* RIGHT / register */}
       <section className="w-full md:w-5/12 flex items-center justify-center p-10 bg-white">
         <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-10">
           <h2 className="text-3xl font-bold mb-6 text-center">Register</h2>
@@ -59,7 +59,7 @@ export default function RegisterPage() {
 
           <p className="mt-6 text-gray-600 text-center text-base">
             Already have an account?{" "}
-            <a href="/register" className="text-blue-600 hover:underline">
+            <a href="/login" className="text-blue-600 hover:underline">
               Log in
             </a>
           </p>

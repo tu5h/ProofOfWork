@@ -28,20 +28,20 @@ export default function Navbar() {
         </Link>
         <div className="hidden md:flex items-center gap-8">
           <Link
-            href="/Features"
-            className={`transition-colors ${isActive('/Features') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            href="/features"
+            className={`transition-colors ${isActive('/features') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
           >
             Features
           </Link>
           <Link
-            href="/HowItWorks"
-            className={`transition-colors ${isActive('/HowItWorks') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            href="/howItWorks"
+            className={`transition-colors ${isActive('/howItWorks') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
           >
             How It Works
           </Link>
           <Link
-            href="/UseCases"
-            className={`transition-colors ${isActive('/UseCases') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            href="/useCases"
+            className={`transition-colors ${isActive('/useCases') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
           >
             Use Cases
           </Link>
