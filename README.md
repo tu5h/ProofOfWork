@@ -1,1 +1,2 @@
-"# ProofOfWork" 
+# ProofOfWork
+
