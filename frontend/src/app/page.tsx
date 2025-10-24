@@ -1,7 +1,19 @@
+"use client";
+
 import { Shield, MapPin, Lock, CheckCircle, PlayCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter }from 'next/navigation';
+import React from "react";
 
 export default function Home() {
+  {/* Button Code */}
+
+  const router = useRouter();
+
+  const handleClick = (): void => {
+    router.push("/login");
+  }
+
   return (
     <>
       {/* Hero Section */}
@@ -23,7 +35,7 @@ export default function Home() {
                 Ensure payments happen only where they should.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
-                <button className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                <button className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5" onClick={handleClick}>
                   Get Started
                 </button>
                 <button className="bg-white text-gray-900 px-8 py-4 rounded-lg hover:bg-gray-50 transition-all font-semibold text-lg border-2 border-gray-200 flex items-center justify-center gap-2">
