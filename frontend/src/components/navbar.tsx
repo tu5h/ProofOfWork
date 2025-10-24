@@ -34,14 +34,14 @@ export default function Navbar() {
             Features
           </Link>
           <Link
-            href="/howItWorks"
-            className={`transition-colors ${isActive('/howItWorks') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            href="/howitworks"
+            className={`transition-colors ${isActive('/howitworks') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
           >
             How It Works
           </Link>
           <Link
-            href="/useCases"
-            className={`transition-colors ${isActive('/useCases') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            href="/usecases"
+            className={`transition-colors ${isActive('/usecases') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
           >
             Use Cases
           </Link>

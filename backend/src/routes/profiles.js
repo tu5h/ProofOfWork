@@ -4,9 +4,9 @@ const { supabase, supabaseAdmin } = require('../config/supabase');
 const concordiumService = require('../services/concordiumService');
 
 // Get all profiles
-router.get('/profiles', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('profiles')
       .select(`
         *,
@@ -30,9 +30,9 @@ router.get('/profiles', async (req, res) => {
 });
 
 // Get profile by ID
-router.get('/profiles/:id', async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('profiles')
       .select(`
         *,
@@ -65,7 +65,7 @@ router.get('/profiles/:id', async (req, res) => {
 });
 
 // Create new profile
-router.post('/profiles', async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { role, display_name, concordium_account, concordium_did } = req.body;
 
@@ -81,7 +81,7 @@ router.post('/profiles', async (req, res) => {
       }
     }
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from('profiles')
       .insert({
         role,
@@ -108,9 +108,9 @@ router.post('/profiles', async (req, res) => {
 });
 
 // Get profile balance from Concordium
-router.get('/profiles/:id/balance', async (req, res) => {
+router.get('/:id/balance', async (req, res) => {
   try {
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select('concordium_account')
       .eq('id', req.params.id)
@@ -146,7 +146,7 @@ router.get('/profiles/:id/balance', async (req, res) => {
 // Verify Concordium identity
 router.post('/profiles/:id/verify-identity', async (req, res) => {
   try {
-    const { data: profile, error } = await supabase
+    const { data: profile, error } = await supabaseAdmin
       .from('profiles')
       .select('concordium_account')
       .eq('id', req.params.id)
