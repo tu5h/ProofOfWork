@@ -7,7 +7,10 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "seed": "node src/scripts/seedSupabase.js",
-    "test": "jest"
+    "test": "jest",
+    "test:api": "node src/tests/api.test.js",
+    "test:manual": "bash test-api.sh",
+    "test:manual:win": "test-api.bat"
   },
   "dependencies": {
     "express": "^4.18.2",

@@ -214,17 +214,19 @@ class ConcordiumService {
         throw new Error('Concordium client not initialized');
       }
 
-      const consensusInfo = await this.client.getConsensusInfo();
+      // Get basic network info without consensus details
       return {
         network: this.isTestnet ? 'testnet' : 'mainnet',
         nodeUrl: this.nodeUrl,
-        consensusInfo: consensusInfo
+        connected: true,
+        status: 'active'
       };
     } catch (error) {
       console.error('Failed to get network info:', error);
       return {
         network: this.isTestnet ? 'testnet' : 'mainnet',
         nodeUrl: this.nodeUrl,
+        connected: false,
         error: error.message
       };
     }

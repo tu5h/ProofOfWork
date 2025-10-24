@@ -10,10 +10,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
 
-// Create Supabase client for general operations
+// Client for general database operations
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// Create Supabase client with service role for admin operations
+// Admin client for elevated operations
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
 module.exports = {

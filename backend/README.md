@@ -1,6 +1,6 @@
 # ProofOfWork Backend API
 
-A Node.js/Express backend API for the ProofOfWork location-verified payment platform, built for the Concordium hackathon. This backend integrates with Supabase for database operations and Concordium blockchain for identity verification and payments.
+Our Node.js/Express backend API for the ProofOfWork location-verified payment platform, built for the Concordium hackathon. We've integrated Supabase for database operations and Concordium blockchain for identity verification and payments.
 
 ## 🏗️ Architecture
 
@@ -13,7 +13,7 @@ A Node.js/Express backend API for the ProofOfWork location-verified payment plat
 - **Security**: Helmet, CORS, Rate Limiting
 
 ### Database Schema (Supabase)
-The backend works with the following Supabase tables:
+Our backend works with the following Supabase tables:
 - `profiles` - User profiles with Concordium accounts
 - `businesses` - Business entities
 - `workers` - Worker entities  
@@ -64,12 +64,12 @@ npm install
 ```
 
 ### 2. Environment Configuration
-Copy the environment template:
+Copy our environment template:
 ```bash
 cp env.example .env
 ```
 
-Configure your `.env` file:
+Configure the `.env` file with your credentials:
 ```env
 # Supabase Configuration
 SUPABASE_URL=your-supabase-project-url
@@ -88,7 +88,7 @@ CORS_ORIGIN=http://localhost:3000
 ```
 
 ### 3. Database Setup
-Ensure your Supabase project has the required tables:
+Make sure your Supabase project includes our required tables:
 - `profiles`
 - `businesses` 
 - `workers`
@@ -106,7 +106,7 @@ npm run seed
 npm run dev
 ```
 
-The API will be available at `http://localhost:5000`
+Our API will be available at `http://localhost:5000`
 
 ## 📊 API Usage Examples
 
@@ -147,6 +147,7 @@ curl -X PATCH http://localhost:5000/api/v1/jobs/job-uuid/complete \
 
 ## 🔐 Security Features
 
+We've implemented several security measures:
 - **Rate Limiting**: 100 requests per 15 minutes per IP
 - **CORS Protection**: Configurable origin restrictions
 - **Helmet Security**: Security headers
@@ -216,6 +217,8 @@ curl http://localhost:5000/
 ```
 
 ## 📝 Database Schema Reference
+
+Here's our Supabase schema structure:
 
 ### Profiles Table
 ```sql
