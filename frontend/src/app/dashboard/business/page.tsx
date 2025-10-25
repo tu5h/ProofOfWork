@@ -3,16 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
-/**
- * Business Dashboard (Sidebar + Jobs List Only, Mocked)
- * - Replaces center divider with a left sidebar
- * - Sidebar buttons: Profile, Settings, Create Job
- * - Main area shows ONLY the list of current jobs
- * - Each job has a checkbox: "Release payment if worker is nearby"
- * - "Create Job" navigates to /jobs/new (page to be built later)
- * - Keeps your color theme & coding style (Tailwind + simple handlers)
- */
-
 type UUID = string;
 
 type Profile = {
@@ -21,19 +11,12 @@ type Profile = {
   display_name?: string | null;
   concordium_account?: string | null;
   concordium_did?: boolean | null;
-  business?: {
-    id: UUID;
-    company_name: string;
-  } | null;
+  business?: { id: UUID; company_name: string } | null;
 };
 
-type Worker = {
-  id: UUID;
-  display_name?: string | null;
-};
+type Worker = { id: UUID; display_name?: string | null };
 
 type JobStatus = "open" | "in_progress" | "completed" | "paid" | "cancelled";
-
 type EscrowStatus = "none" | "held" | "released" | "failed";
 
 type Job = {
@@ -48,126 +31,17 @@ type Job = {
   status: JobStatus;
   created_at?: string | null;
   updated_at?: string | null;
-  escrow?: {
-    status: EscrowStatus;
-    tx_hash?: string | null;
-    simulated?: boolean | null;
-    updated_at?: string | null;
-  } | null;
-  // New per-job flag for MVP UI control
+  escrow?: { status: EscrowStatus; tx_hash?: string | null; simulated?: boolean | null; updated_at?: string | null } | null;
   release_if_nearby?: boolean;
 };
 
-type BusinessRules = {
-  require_on_site: boolean;
-  min_radius_m?: number | null;
-  accepted_region?: string | null;
-};
-
-// -----------------------------
-// Mock API (frontend only)
-// -----------------------------
-
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-let MOCK_DB = {
-  me: {
-    id: "11111111-1111-1111-1111-111111111111",
-    role: "business" as const,
-    display_name: "Ava Business Owner",
-    concordium_account: "4t8C…ConcordiumAcct",
-    concordium_did: true,
-    business: {
-      id: "b0000000-0000-0000-0000-000000000001",
-      company_name: "Pawfect Walks Ltd",
-    },
-  } as Profile,
-  workers: [
-    { id: "w0000000-0000-0000-0000-000000000001", display_name: "Sam Walker" },
-    { id: "w0000000-0000-0000-0000-000000000002", display_name: "Jess Cleaner" },
-  ] as Worker[],
-  jobs: [
-    {
-      id: "j0000000-0000-0000-0000-000000000001",
-      business_id: "b0000000-0000-0000-0000-000000000001",
-      worker_id: null,
-      title: "Dog walk - NW1",
-      description: "30 min walk around Regent's Park",
-      amount_plt: 25,
-      location: { lat: 51.531, lng: -0.155 },
-      radius_m: 60,
-      status: "open",
-      created_at: new Date().toISOString(),
-      escrow: { status: "held", simulated: true, updated_at: new Date().toISOString() },
-      release_if_nearby: true,
-    },
-    {
-      id: "j0000000-0000-0000-0000-000000000002",
-      business_id: "b0000000-0000-0000-0000-000000000001",
-      worker_id: "w0000000-0000-0000-0000-000000000001",
-      title: "Flat clean - W1",
-      description: "1 bed deep clean",
-      amount_plt: 70,
-      location: { lat: 51.515, lng: -0.141 },
-      radius_m: 80,
-      status: "in_progress",
-      created_at: new Date().toISOString(),
-      escrow: { status: "held", simulated: true, updated_at: new Date().toISOString() },
-      release_if_nearby: false,
-    },
-  ] as Job[],
-  rules: {
-    require_on_site: true,
-    min_radius_m: 25,
-    accepted_region: "London",
-  } as BusinessRules,
-};
-
-const mockApi = {
-  async getMe(): Promise<Profile> {
-    await delay(200);
-    return JSON.parse(JSON.stringify(MOCK_DB.me));
-  },
-  async getWorkers(): Promise<Worker[]> {
-    await delay(200);
-    return JSON.parse(JSON.stringify(MOCK_DB.workers));
-  },
-  async getJobs(businessId: UUID): Promise<Job[]> {
-    await delay(250);
-    return MOCK_DB.jobs
-      .filter((j) => j.business_id === businessId)
-      .map((j) => JSON.parse(JSON.stringify(j)));
-  },
-  async assignWorker(jobId: UUID, worker_id: UUID | null): Promise<{ ok: true }> {
-    await delay(200);
-    const j = MOCK_DB.jobs.find((x) => x.id === jobId);
-    if (!j) throw new Error("Job not found");
-    j.worker_id = worker_id || null;
-    j.updated_at = new Date().toISOString();
-    return { ok: true };
-  },
-  async simulateEscrowRelease(jobId: UUID): Promise<{ status: EscrowStatus; tx_hash?: string; simulated: boolean }> {
-    await delay(350);
-    const j = MOCK_DB.jobs.find((x) => x.id === jobId);
-    if (!j) throw new Error("Job not found");
-    j.escrow = {
-      status: "released",
-      tx_hash: `0x${Math.random().toString(16).slice(2).padEnd(16, "0")}`,
-      simulated: true,
-      updated_at: new Date().toISOString(),
-    };
-    j.status = "paid";
-    return { status: j.escrow.status, tx_hash: j.escrow.tx_hash!, simulated: true };
-  },
-  async setReleaseIfNearby(jobId: UUID, value: boolean): Promise<{ ok: true }> {
-    await delay(150);
-    const j = MOCK_DB.jobs.find((x) => x.id === jobId);
-    if (!j) throw new Error("Job not found");
-    j.release_if_nearby = value;
-    j.updated_at = new Date().toISOString();
-    return { ok: true };
-  },
-};
+async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+  let data: any = null;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) throw new Error(data?.message || `Request failed: ${res.status}`);
+  return data as T;
+}
 
 export default function BusinessDashboardPage() {
   const router = useRouter();
@@ -182,16 +56,16 @@ export default function BusinessDashboardPage() {
   useEffect(() => {
     (async () => {
       try {
-        const me = await mockApi.getMe();
+        const me = await fetchJSON<Profile>("/api/me");
         setProfile(me);
-        const ws = await mockApi.getWorkers();
+        const ws = await fetchJSON<Worker[]>("/api/workers");
         setWorkers(ws);
         if (me.business?.id) {
-          const js = await mockApi.getJobs(me.business.id);
+          const js = await fetchJSON<Job[]>(`/api/jobs?businessId=${me.business.id}`);
           setJobs(js);
         }
       } catch (err: any) {
-        alert(err?.message || "Failed to load dashboard");
+        alert(err.message || "Failed to load dashboard");
       } finally {
         setLoading(false);
       }
@@ -200,23 +74,35 @@ export default function BusinessDashboardPage() {
 
   const reloadJobs = async () => {
     if (!businessId) return;
-    const js = await mockApi.getJobs(businessId);
+    const js = await fetchJSON<Job[]>(`/api/jobs?businessId=${businessId}`);
     setJobs(js);
   };
 
   const handleAssignWorker = async (jobId: UUID, workerId: UUID) => {
-    await mockApi.assignWorker(jobId, workerId);
+    await fetchJSON(`/api/jobs/${jobId}/assign-worker`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ worker_id: workerId || null }),
+    });
     await reloadJobs();
   };
 
   const handleSimulateEscrowRelease = async (jobId: UUID) => {
-    const res = await mockApi.simulateEscrowRelease(jobId);
-    alert(`Escrow ${res.status}. tx: ${res.tx_hash}`);
+    const res = await fetchJSON<{ status: string; tx_hash?: string }>(`/api/escrow/release`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job_id: jobId, simulate: true }),
+    });
+    alert(`Escrow ${res.status}${res.tx_hash ? ` • tx: ${res.tx_hash}` : ""}`);
     await reloadJobs();
   };
 
   const handleToggleReleaseIfNearby = async (jobId: UUID, value: boolean) => {
-    await mockApi.setReleaseIfNearby(jobId, value);
+    await fetchJSON(`/api/jobs/${jobId}/release-if-nearby`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ release_if_nearby: value }),
+    });
     await reloadJobs();
   };
 
@@ -234,7 +120,9 @@ export default function BusinessDashboardPage() {
         <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-10 text-center">
           <h2 className="text-3xl font-bold mb-4">No Business Profile</h2>
           <p className="text-gray-600 mb-6">You’re logged in, but no business profile was found.</p>
-          <a href="/register" className="bg-green-600 text-white py-3 px-6 rounded-lg text-lg hover:bg-blue-700 transition inline-block">Create Business Profile</a>
+          <a href="/register" className="bg-green-600 text-white py-3 px-6 rounded-lg text-lg hover:bg-blue-700 transition inline-block">
+            Create Business Profile
+          </a>
         </div>
       </main>
     );
@@ -254,19 +142,48 @@ export default function BusinessDashboardPage() {
             <div className="bg-blue-50 rounded-xl p-4">
               <h3 className="text-lg font-bold">{profile?.business?.company_name || "Your Company"}</h3>
               <p className="text-sm text-gray-600">Owner: {profile?.display_name || "—"}</p>
-              <p className="text-xs text-gray-600">DID: <span className={profile?.concordium_did ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>{profile?.concordium_did ? "Verified" : "Not verified"}</span></p>
+              <p className="text-xs text-gray-600">
+                DID: <span className={profile?.concordium_did ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+                  {profile?.concordium_did ? "Verified" : "Not verified"}
+                </span>
+              </p>
             </div>
           </div>
 
           <nav className="w-full flex md:flex-col gap-2">
-            <button className="w-full border border-gray-200 p-3 rounded-lg hover:bg-gray-50 text-left">Profile</button>
-            <button className="w-full border border-gray-200 p-3 rounded-lg hover:bg-gray-50 text-left">Settings</button>
-            <button
-              onClick={() => router.push("/create_job")}
-              className="w-full bg-green-600 text-white p-3 rounded-lg hover:bg-blue-700 transition"
+            <button 
+              onClick={() => router.push("/dashboard/business")}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== 'undefined' && window.location.pathname === "/dashboard/business" 
+                  ? "bg-blue-100 text-blue-700" 
+                  : "hover:bg-gray-50"
+              }`}
             >
-              + Create Job
+              Home
             </button>
+            <button 
+              onClick={() => router.push("/dashboard/profile")}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== 'undefined' && window.location.pathname === "/dashboard/profile" 
+                  ? "bg-blue-100 text-blue-700" 
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              Profile
+            </button>
+            <button 
+              onClick={() => router.push("/dashboard/settings")}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== 'undefined' && window.location.pathname === "/dashboard/settings" 
+                  ? "bg-blue-100 text-blue-700" 
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              Settings
+            </button>
+            <a href="/dashboard/business/create_job" className="w-full bg-green-600 text-white p-3 rounded-lg hover:bg-blue-700 transition text-center">
+              + Create Job
+            </a>
           </nav>
         </aside>
 
@@ -276,15 +193,19 @@ export default function BusinessDashboardPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-3xl md:text-4xl font-bold">Jobs</h2>
               <div className="flex items-center gap-2">
-                <a href="/create_job" className="hidden md:inline-block bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition">+ Create Job</a>
-                <button className="bg-white border border-gray-200 p-3 rounded-lg hover:bg-gray-50 text-left" onClick={reloadJobs}>Refresh</button>
+                <a href="/dashboard/business/create_job" className="hidden md:inline-block bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition">
+                  + Create Job
+                </a>
+                <button className="text-sm text-blue-600 underline" onClick={reloadJobs}>Refresh</button>
               </div>
             </div>
 
             {jobs.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-xl p-10 text-center">
                 <p className="text-gray-600 mb-4">No jobs yet.</p>
-                <a href="/create_job" className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition inline-block">Create your first job</a>
+                <a href="/dashboard/business/create_job" className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition inline-block">
+                  Create your first job
+                </a>
               </div>
             ) : (
               <ul className="flex flex-col gap-4">
@@ -305,7 +226,6 @@ export default function BusinessDashboardPage() {
                       </div>
 
                       <div className="w-full md:w-60 shrink-0 flex flex-col gap-2">
-                        {/* Per-job flag */}
                         <label className="flex items-center gap-2 border border-gray-200 p-2 rounded-lg">
                           <input
                             type="checkbox"
@@ -315,7 +235,6 @@ export default function BusinessDashboardPage() {
                           <span className="text-sm">Release payment if worker is nearby</span>
                         </label>
 
-                        {/* Assign/Change worker */}
                         <select
                           className="border border-gray-300 p-2 rounded-lg text-sm"
                           value={job.worker_id || ""}
@@ -327,7 +246,6 @@ export default function BusinessDashboardPage() {
                           ))}
                         </select>
 
-                        {/* Simulate escrow release (demo) */}
                         <button
                           className="bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition"
                           onClick={() => handleSimulateEscrowRelease(job.id)}
@@ -335,6 +253,9 @@ export default function BusinessDashboardPage() {
                           Simulate Release
                         </button>
 
+                        <a href={`/jobs/${job.id}`} className="text-center border border-gray-300 py-2 rounded-lg text-sm hover:bg-gray-50">
+                          View Job
+                        </a>
                       </div>
                     </div>
 
