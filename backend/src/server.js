@@ -8,6 +8,9 @@ require('dotenv').config();
 const profileRoutes = require('./routes/profiles');
 const jobRoutes = require('./routes/jobs');
 
+// Import middleware
+const { errorHandler } = require('./middleware/errorHandler');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -92,15 +95,7 @@ app.use('*', (req, res) => {
 });
 
 // Error handling middleware
-app.use((error, req, res, next) => {
-  console.error('API Error:', error);
-  
-  res.status(error.status || 500).json({
-    success: false,
-    message: error.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-  });
-});
+app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {

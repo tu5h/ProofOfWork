@@ -9,24 +9,52 @@ class ConcordiumService {
     this.client = null;
     this.hybridService = HybridConcordiumService;
     this.useRealTransactions = process.env.USE_REAL_TRANSACTIONS === 'true';
+    this.cache = new Map(); // Simple in-memory cache
+    this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
     this.initializeClient();
   }
 
   async initializeClient() {
     try {
       this.client = new ConcordiumGRPCClient(this.nodeUrl, 10000);
-      console.log('✅ Connected to Concordium node:', this.nodeUrl);
+      console.log('Connected to Concordium node:', this.nodeUrl);
     } catch (error) {
-      console.error('❌ Failed to connect to Concordium node:', error.message);
+      console.error('Failed to connect to Concordium node:', error.message);
     }
+  }
+
+  // Cache management methods
+  getFromCache(key) {
+    const cached = this.cache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      return cached.data;
+    }
+    this.cache.delete(key);
+    return null;
+  }
+
+  setCache(key, data) {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
   }
 
   // Verify Concordium Identity (Hybrid testnet integration)
   async verifyIdentity(concordiumAccount) {
     try {
+      // Check cache first
+      const cacheKey = `identity_${concordiumAccount}`;
+      const cached = this.getFromCache(cacheKey);
+      if (cached) {
+        return cached;
+      }
+
       // Use hybrid service if enabled
       if (this.useRealTransactions) {
-        return await this.hybridService.verifyIdentity(concordiumAccount);
+        const result = await this.hybridService.verifyIdentity(concordiumAccount);
+        this.setCache(cacheKey, result);
+        return result;
       }
 
       if (!this.client) {
@@ -49,7 +77,7 @@ class ConcordiumService {
       }
 
       // Simulate successful verification for real testnet
-      return {
+      const result = {
         verified: true,
         accountInfo: {
           address: concordiumAccount,
@@ -60,6 +88,9 @@ class ConcordiumService {
           realAccount: true // Flag to indicate this is a real account
         }
       };
+
+      this.setCache(cacheKey, result);
+      return result;
       
     } catch (error) {
       console.error('Concordium identity verification failed:', error.message);

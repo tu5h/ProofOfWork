@@ -13,9 +13,9 @@ class HybridConcordiumService {
   async initializeClient() {
     try {
       this.client = new ConcordiumGRPCClient(this.nodeUrl, 10000);
-      console.log('✅ Connected to Concordium node:', this.nodeUrl);
+      console.log('Connected to Concordium node:', this.nodeUrl);
     } catch (error) {
-      console.error('❌ Failed to connect to Concordium node:', error.message);
+      console.error('Failed to connect to Concordium node:', error.message);
     }
   }
 

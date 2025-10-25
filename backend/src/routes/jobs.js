@@ -6,27 +6,42 @@ const concordiumService = require('../services/concordiumService');
 // Get all jobs
 router.get('/', async (req, res) => {
   try {
-    const { status, business_id, worker_id } = req.query;
+    const { status, business_id, worker_id, limit = 50, offset = 0 } = req.query;
+    
+    // Build optimized query
     let query = supabaseAdmin
       .from('jobs')
       .select(`
-        *,
+        id,
+        title,
+        description,
+        amount_plt,
+        status,
+        created_at,
         businesses!jobs_business_id_fkey(company_name),
         workers!jobs_worker_id_fkey(*),
-        escrows(*)
-      `);
+        escrows(status, tx_hash)
+      `)
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1)
+      .order('created_at', { ascending: false });
 
+    // Apply filters
     if (status) query = query.eq('status', status);
     if (business_id) query = query.eq('business_id', business_id);
     if (worker_id) query = query.eq('worker_id', worker_id);
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query;
 
     if (error) throw error;
 
     res.json({
       success: true,
-      data: data || []
+      data: data || [],
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        total: data?.length || 0
+      }
     });
   } catch (error) {
     res.status(500).json({
