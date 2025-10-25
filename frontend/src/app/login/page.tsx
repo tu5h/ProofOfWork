@@ -30,13 +30,13 @@ export default function LoginPage() {
       }
 
       // Get account type from user metadata
-      const accountType = data.user?.user_metadata?.account_type || "personal";
+      const accountType = data.user?.user_metadata?.account_type || "worker";
 
       // Redirect based on account type
       if (accountType === "business") {
         router.push("/dashboard/business");
       } else {
-        router.push("/dashboard/personal");
+        router.push("/dashboard/worker");
       }
 
       router.refresh();

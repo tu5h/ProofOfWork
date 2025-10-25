@@ -10,7 +10,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [accountType, setAccountType] = useState<"business" | "personal">("personal");
+  const [accountType, setAccountType] = useState<"business" | "worker">("worker");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -109,14 +109,14 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setAccountType("personal")}
-                  className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${accountType === "personal"
+                  onClick={() => setAccountType("worker")}
+                  className={`flex flex-col items-center gap-2 p-4 rounded-lg border-2 transition-all ${accountType === "worker"
                       ? "border-blue-600 bg-blue-50 text-blue-700"
                       : "border-gray-300 bg-white text-gray-600 hover:border-gray-400"
                     }`}
                 >
                   <User className="w-6 h-6" />
-                  <span className="text-sm font-medium">Personal</span>
+                  <span className="text-sm font-medium">Worker</span>
                 </button>
                 <button
                   type="button"
