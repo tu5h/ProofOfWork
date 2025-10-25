@@ -262,7 +262,7 @@ export default function BusinessDashboardPage() {
             <button className="w-full border border-gray-200 p-3 rounded-lg hover:bg-gray-50 text-left">Profile</button>
             <button className="w-full border border-gray-200 p-3 rounded-lg hover:bg-gray-50 text-left">Settings</button>
             <button
-              onClick={() => router.push("/jobs/new")}
+              onClick={() => router.push("/create_job")}
               className="w-full bg-green-600 text-white p-3 rounded-lg hover:bg-blue-700 transition"
             >
               + Create Job
@@ -276,7 +276,7 @@ export default function BusinessDashboardPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-3xl md:text-4xl font-bold">Jobs</h2>
               <div className="flex items-center gap-2">
-                <a href="/jobs/new" className="hidden md:inline-block bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition">+ Create Job</a>
+                <a href="/create_job" className="hidden md:inline-block bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition">+ Create Job</a>
                 <button className="bg-white border border-gray-200 p-3 rounded-lg hover:bg-gray-50 text-left" onClick={reloadJobs}>Refresh</button>
               </div>
             </div>
@@ -284,7 +284,7 @@ export default function BusinessDashboardPage() {
             {jobs.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-xl p-10 text-center">
                 <p className="text-gray-600 mb-4">No jobs yet.</p>
-                <a href="/jobs/new" className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition inline-block">Create your first job</a>
+                <a href="/create_job" className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition inline-block">Create your first job</a>
               </div>
             ) : (
               <ul className="flex flex-col gap-4">
