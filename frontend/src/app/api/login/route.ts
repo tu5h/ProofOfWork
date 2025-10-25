@@ -1,20 +1,52 @@
-// app/api/login/route.ts
 import { NextResponse } from "next/server";
-import { findUser } from "@/lib/users";
-
+import { createServerClient } from "@/lib/supabaseClient";
 
 export async function POST(req: Request) {
-  const { username, password } = await req.json();
+  try {
+    const { email, password } = await req.json();
 
-  if (!username || !password) {
-    return NextResponse.json({ message: "Missing username or password" }, { status: 400 });
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createServerClient();
+
+    // Login with Supabase Auth
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
+
+    // Return user data and session 
+    return NextResponse.json(
+      {
+        message: "Login successful",
+        user: {
+          id: data.user.id,
+          email: data.user.email,
+          username: data.user.user_metadata?.username,
+        },
+        session: {
+          access_token: data.session?.access_token,
+          refresh_token: data.session?.refresh_token,
+        },
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
-
-  const user = findUser(username, password);
-
-  if (!user) {
-    return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
-  }
-
-  return NextResponse.json({ message: "Login successful" });
 }
