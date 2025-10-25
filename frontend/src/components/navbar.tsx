@@ -34,19 +34,19 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-8">
           <Link
             href="/home/features"
-            className={`text-lg transition-colors ${isActive('/features') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            className={`text-lg transition-colors ${isActive('/home/features') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
           >
             Features
           </Link>
           <Link
             href="/home/howitworks"
-            className={`text-lg transition-colors ${isActive('/howitworks') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            className={`text-lg transition-colors ${isActive('/home/howitworks') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
           >
             How It Works
           </Link>
           <Link
             href="/home/usecases"
-            className={`text-lg transition-colors ${isActive('/usecases') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            className={`text-lg transition-colors ${isActive('/home/usecases') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
           >
             Use Cases
           </Link>
@@ -80,22 +80,22 @@ export default function Navbar() {
       >
         <div className="px-6 pt-6 pb-5 flex flex-col gap-6 overflow-auto h-full">
           <Link
-            href="/features"
-            className={`text-2xl font-semibold py-1 transition-colors ${isActive('/features') ? 'text-blue-600' : 'text-gray-700 hover:text-gray-900'}`}
+            href="/home/features"
+            className={`text-2xl font-semibold py-1 transition-colors ${isActive('/home/features') ? 'text-blue-600' : 'text-gray-700 hover:text-gray-900'}`}
             onClick={() => setOpen(false)}
           >
             Features
           </Link>
           <Link
-            href="/howitworks"
-            className={`text-2xl font-semibold py-1 transition-colors ${isActive('/howitworks') ? 'text-blue-600' : 'text-gray-700 hover:text-gray-900'}`}
+            href="/home/howitworks"
+            className={`text-2xl font-semibold py-1 transition-colors ${isActive('/home/howitworks') ? 'text-blue-600' : 'text-gray-700 hover:text-gray-900'}`}
             onClick={() => setOpen(false)}
           >
             How It Works
           </Link>
           <Link
-            href="/usecases"
-            className={`text-2xl font-semibold py-1 transition-colors ${isActive('/usecases') ? 'text-blue-600' : 'text-gray-700 hover:text-gray-900'}`}
+            href="/home/usecases"
+            className={`text-2xl font-semibold py-1 transition-colors ${isActive('/home/usecases') ? 'text-blue-600' : 'text-gray-700 hover:text-gray-900'}`}
             onClick={() => setOpen(false)}
           >
             Use Cases
