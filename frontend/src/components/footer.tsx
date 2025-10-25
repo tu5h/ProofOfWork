@@ -29,17 +29,17 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-4">Product</h4>
             <ul className="space-y-2">
-              <li><Link href="/features" className="hover:text-white transition-colors">Features</Link></li>
-              <li><Link href="/howitworks" className="hover:text-white transition-colors">How It Works</Link></li>
-              <li><Link href="/usecases" className="hover:text-white transition-colors">Use Cases</Link></li>
+              <li><Link href="/home/features" className="hover:text-white transition-colors">Features</Link></li>
+              <li><Link href="/home/howitworks" className="hover:text-white transition-colors">How It Works</Link></li>
+              <li><Link href="/home/usecases" className="hover:text-white transition-colors">Use Cases</Link></li>
             </ul>
           </div>
 
           <div>
             <h4 className="text-white font-semibold mb-4">Resources</h4>
             <ul className="space-y-2">
-              <li><Link href="/demovideo" className="hover:text-white transition-colors">Demo Video</Link></li>
-              <li><Link href="/contact" className="hover:text-white transition-colors">Contact Us</Link></li>
+              <li><Link href="/home/demovideo" className="hover:text-white transition-colors">Demo Video</Link></li>
+              <li><Link href="/home/contact" className="hover:text-white transition-colors">Contact Us</Link></li>
             </ul>
           </div>
         </div>
