@@ -38,7 +38,7 @@ export default function Home() {
                 <button className="bg-blue-600 text-white px-8 py-4 rounded-lg hover:bg-blue-700 transition-all font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5" onClick={handleClick}>
                   Get Started
                 </button>
-              <Link href="/home/demovideo">
+              <Link href="/demoVideo">
                   <button className="bg-white text-gray-900 px-8 py-4 rounded-lg hover:bg-gray-50 transition-all font-semibold text-lg border-2 border-gray-200 flex items-center justify-center gap-2 w-full">
                     <PlayCircle className="w-5 h-5" />
                     Watch Demo
@@ -101,7 +101,7 @@ export default function Home() {
               <p className="text-gray-600 leading-relaxed mb-4">
                 Instant location verification with GPS and blockchain-based proof.
               </p>
-              <Link href="/home/features" className="text-blue-600 hover:text-blue-700 font-medium">
+              <Link href="/features" className="text-blue-600 hover:text-blue-700 font-medium">
                 Learn more →
               </Link>
             </div>
@@ -116,7 +116,7 @@ export default function Home() {
               <p className="text-gray-600 leading-relaxed mb-4">
                 Set geo-fenced payment rules tailored to your business needs.
               </p>
-              <Link href="/home/features" className="text-cyan-600 hover:text-cyan-700 font-medium">
+              <Link href="/features" className="text-cyan-600 hover:text-cyan-700 font-medium">
                 Learn more →
               </Link>
             </div>
@@ -131,7 +131,7 @@ export default function Home() {
               <p className="text-gray-600 leading-relaxed mb-4">
                 Tamper-proof verification on the Concordium network.
               </p>
-              <Link href="/home/features" className="text-blue-600 hover:text-blue-700 font-medium">
+              <Link href="/features" className="text-blue-600 hover:text-blue-700 font-medium">
                 Learn more →
               </Link>
             </div>
@@ -152,7 +152,7 @@ export default function Home() {
             <button className="bg-white text-blue-600 px-8 py-4 rounded-lg hover:bg-gray-50 transition-all font-semibold text-lg shadow-xl" onClick={handleClick}>
               Get Started Today
             </button>
-            <Link href="/home/demovideo">
+            <Link href="/demoVideo">
               <button className="bg-blue-700 text-white px-8 py-4 rounded-lg hover:bg-blue-800 transition-all font-semibold text-lg border-2 border-white/20 flex items-center justify-center gap-2 w-full">
                 <PlayCircle className="w-5 h-5" />
                 Watch Demo Video

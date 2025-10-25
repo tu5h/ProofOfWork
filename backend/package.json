@@ -10,7 +10,17 @@
     "test": "jest",
     "test:api": "node src/tests/api.test.js",
     "test:manual": "bash test-api.sh",
-    "test:manual:win": "test-api.bat"
+    "test:manual:win": "test-api.bat",
+    "deploy:contracts": "node src/scripts/deployRealContracts.js",
+    "test:transactions": "node src/scripts/testRealTransactions.js",
+    "test:hybrid": "node src/scripts/testHybridTransactions.js",
+    "demo:complete": "node src/scripts/runCompleteDemo.js",
+    "demo:simple": "node src/scripts/runSimplifiedDemo.js",
+    "demo:real": "node src/scripts/runRealDemo.js",
+    "demo:practical": "node src/scripts/runPracticalDemo.js",
+    "deploy:full": "npm run deploy:contracts && npm run test:transactions",
+    "demo:hybrid": "npm run test:hybrid",
+    "demo": "npm run demo:practical"
   },
   "dependencies": {
     "express": "^4.18.2",
