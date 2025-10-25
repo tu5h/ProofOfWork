@@ -21,26 +21,20 @@ type Notification = {
   created_at: string;
 };
 
-const MOCK_PROFILE: Profile = {
-  id: "w0000000-0000-0000-0000-000000000001",
-  role: "worker",
-  display_name: "Sam Walker",
-  email: "sam.walker@example.com",
-  concordium_account: "4t8C…WorkerAcct",
-  concordium_did: true,
-};
-
-const MOCK_NOTIFS: Notification[] = [
-  { id: "n1", type: "assignment", message: "Pawfect Walks assigned you a new job: Dog walk", created_at: new Date().toISOString() },
-  { id: "n2", type: "info", message: "Auto-release enabled on one of your jobs.", created_at: new Date().toISOString() },
-];
+async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, init);
+  let data: any = null;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) throw new Error(data?.message || `Request failed: ${res.status}`);
+  return data as T;
+}
 
 export default function DashboardProfilePage() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [notifs, setNotifs] = useState<Notification[]>([]);
 
-  // form fields (no wiring yet)
+  // form fields (UI only)
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [currentPw, setCurrentPw] = useState("");
@@ -49,14 +43,25 @@ export default function DashboardProfilePage() {
   const [ccd, setCcd] = useState("");
 
   useEffect(() => {
-    setTimeout(() => {
-      setProfile(MOCK_PROFILE);
-      setNotifs(MOCK_NOTIFS);
-      setName(MOCK_PROFILE.display_name || "");
-      setEmail(MOCK_PROFILE.email || "");
-      setCcd(MOCK_PROFILE.concordium_account || "");
-      setLoading(false);
-    }, 200);
+    (async () => {
+      try {
+        // Hook these up to your backend
+        // 1) Load current user
+        const me = await fetchJSON<Profile>("/api/me");
+        setProfile(me);
+        setName(me.display_name || "");
+        setEmail(me.email || "");
+        setCcd(me.concordium_account || "");
+
+        // 2) Load notifications
+        const ns = await fetchJSON<Notification[]>("/api/worker/notifications");
+        setNotifs(Array.isArray(ns) ? ns : []);
+      } catch {
+        // render empty if calls fail
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const unseenCount = useMemo(() => notifs.length, [notifs]);
@@ -83,7 +88,7 @@ export default function DashboardProfilePage() {
             <div className="bg-blue-50 rounded-xl p-4">
               <h3 className="text-lg font-bold">{profile?.display_name || "Worker"}</h3>
               <p className="text-sm text-gray-600">
-                Concordium DID: {" "}
+                Concordium DID:{" "}
                 <span className={profile?.concordium_did ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
                   {profile?.concordium_did ? "Verified" : "Not verified"}
                 </span>

@@ -35,53 +35,6 @@ type Notification = {
   created_at: string;
 };
 
-const MOCK_PROFILE: Profile = {
-  id: "w0000000-0000-0000-0000-000000000001",
-  role: "worker",
-  display_name: "Sam Walker",
-  concordium_account: "4t8C…WorkerAcct",
-  concordium_did: true,
-};
-
-const MOCK_JOBS: Job[] = [
-  {
-    id: "j0000000-0000-0000-0000-000000000002",
-    title: "Flat clean",
-    description: "1 bed deep clean",
-    amount_plt: 70,
-    location: { lat: 51.515, lng: -0.141 },
-    radius_m: 80,
-    status: "in_progress",
-    release_if_nearby: true,
-  },
-  {
-    id: "j0000000-0000-0000-0000-000000000003",
-    title: "Dog walk",
-    description: "30 min afternoon walk",
-    amount_plt: 25,
-    location: { lat: 51.531, lng: -0.155 },
-    radius_m: 60,
-    status: "open",
-    release_if_nearby: false,
-  },
-];
-
-const MOCK_NOTIFS: Notification[] = [
-  {
-    id: "n1",
-    type: "assignment",
-    message: "Pawfect Walks assigned you a new job: Dog walk",
-    jobId: "j0000000-0000-0000-0000-000000000003",
-    created_at: new Date().toISOString(),
-  },
-  {
-    id: "n2",
-    type: "info",
-    message: "Payment will auto-release when you finish within the geofence.",
-    created_at: new Date().toISOString(),
-  },
-];
-
 export default function WorkerDashboardPage() {
   const router = useRouter();
 
@@ -108,12 +61,21 @@ export default function WorkerDashboardPage() {
   };
 
   useEffect(() => {
-    setTimeout(() => {
-      setProfile(MOCK_PROFILE);
-      setJobs(MOCK_JOBS);
-      setNotifs(MOCK_NOTIFS);
-      setLoading(false);
-    }, 250);
+    (async () => {
+      try {
+        // TODO: replace with your real endpoints
+        // const me = await fetch("/api/me").then(r => r.json());
+        // const js = await fetch("/api/worker/jobs").then(r => r.json());
+        // const ns = await fetch("/api/worker/notifications").then(r => r.json());
+        // setProfile(me);
+        // setJobs(Array.isArray(js) ? js : []);
+        // setNotifs(Array.isArray(ns) ? ns : []);
+      } catch (e) {
+        // Optional: handle errors
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, []);
 
   const unseenCount = useMemo(() => notifs.length, [notifs]);
@@ -138,7 +100,12 @@ export default function WorkerDashboardPage() {
           <div className="w-full mt-2">
             <div className="bg-blue-50 rounded-xl p-4">
               <h3 className="text-lg font-bold">{profile?.display_name || "Worker"}</h3>
-              <p className="text-sm text-gray-600">Concordium DID: <span className={profile?.concordium_did ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>{profile?.concordium_did ? "Verified" : "Not verified"}</span></p>
+              <p className="text-sm text-gray-600">
+                Concordium DID:{" "}
+                <span className={profile?.concordium_did ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+                  {profile?.concordium_did ? "Verified" : "Not verified"}
+                </span>
+              </p>
             </div>
           </div>
 
@@ -153,26 +120,26 @@ export default function WorkerDashboardPage() {
             >
               Home
             </button>
-             <button 
-               onClick={() => router.push("/dashboard/profile")}
-               className={`w-full p-3 rounded-lg text-left transition-colors ${
-                 typeof window !== 'undefined' && window.location.pathname === "/dashboard/profile" 
-                   ? "bg-blue-100 text-blue-700" 
-                   : "hover:bg-gray-50"
-               }`}
-             >
-               Profile
-             </button>
-             <button 
-               onClick={() => router.push("/dashboard/settings")}
-               className={`w-full p-3 rounded-lg text-left transition-colors ${
-                 typeof window !== 'undefined' && window.location.pathname === "/dashboard/settings" 
-                   ? "bg-blue-100 text-blue-700" 
-                   : "hover:bg-gray-50"
-               }`}
-             >
-               Settings
-             </button>
+            <button 
+              onClick={() => router.push("/dashboard/profile")}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== 'undefined' && window.location.pathname === "/dashboard/profile" 
+                  ? "bg-blue-100 text-blue-700" 
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              Profile
+            </button>
+            <button 
+              onClick={() => router.push("/dashboard/settings")}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== 'undefined' && window.location.pathname === "/dashboard/settings" 
+                  ? "bg-blue-100 text-blue-700" 
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              Settings
+            </button>
 
             <div 
               className="relative w-full"
@@ -196,25 +163,25 @@ export default function WorkerDashboardPage() {
 
               {showNotifications && (
                 <div className="absolute z-20 left-full md:left-0 md:right-auto md:top-full md:mt-2 top-0 ml-2 md:ml-0 w-72 bg-white rounded-xl shadow-xl border border-gray-200">
-                <div className="p-3 border-b border-gray-100 font-semibold">Notifications</div>
-                <ul className="max-h-72 overflow-auto">
-                  {notifs.length === 0 ? (
-                    <li className="p-4 text-sm text-gray-500">No notifications</li>
-                  ) : (
-                    notifs.map((n) => (
-                      <li key={n.id} className="p-4 text-sm hover:bg-gray-50">
-                        <p className="text-gray-800">{n.message}</p>
-                        <p className="text-xs text-gray-500 mt-1">{new Date(n.created_at).toLocaleString()}</p>
-                        {n.type === "assignment" && (
-                          <div className="mt-2 flex gap-2">
-                            <button className="bg-green-600 text-white py-1 px-3 rounded-lg text-xs hover:bg-blue-700 transition">Accept</button>
-                            <button className="border border-gray-300 py-1 px-3 rounded-lg text-xs hover:bg-gray-50">Reject</button>
-                          </div>
-                        )}
-                      </li>
-                    ))
-                  )}
-                </ul>
+                  <div className="p-3 border-b border-gray-100 font-semibold">Notifications</div>
+                  <ul className="max-h-72 overflow-auto">
+                    {notifs.length === 0 ? (
+                      <li className="p-4 text-sm text-gray-500">No notifications</li>
+                    ) : (
+                      notifs.map((n) => (
+                        <li key={n.id} className="p-4 text-sm hover:bg-gray-50">
+                          <p className="text-gray-800">{n.message}</p>
+                          <p className="text-xs text-gray-500 mt-1">{new Date(n.created_at).toLocaleString()}</p>
+                          {n.type === "assignment" && (
+                            <div className="mt-2 flex gap-2">
+                              <button className="bg-green-600 text-white py-1 px-3 rounded-lg text-xs hover:bg-blue-700 transition">Accept</button>
+                              <button className="border border-gray-300 py-1 px-3 rounded-lg text-xs hover:bg-gray-50">Reject</button>
+                            </div>
+                          )}
+                        </li>
+                      ))
+                    )}
+                  </ul>
                 </div>
               )}
             </div>
@@ -249,7 +216,12 @@ export default function WorkerDashboardPage() {
                       </div>
 
                       <div className="w-full md:w-60 shrink-0 flex flex-col gap-2">
-                        <button className="w-full bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition text-center" onClick={() => alert("Marking as finished… (this will check location via Supabase RPC in the real app)")}>Mark job as finished</button>
+                        <button
+                          className="w-full bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition text-center"
+                          onClick={() => { /* will call geolocation + Supabase RPC in real flow */ }}
+                        >
+                          Mark job as finished
+                        </button>
                       </div>
                     </div>
                   </li>
