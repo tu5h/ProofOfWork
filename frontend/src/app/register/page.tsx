@@ -36,7 +36,9 @@ export default function RegisterPage() {
       {/* LEFT / misc - clipped on md+ */}
       <section className="w-full md:w-7/12 clip-diagonal bg-blue-50 flex items-center justify-center p-12 ">
         <div className="max-w-md text-center">
-          <h1 className="text-7xl font-bold mb-6">ProofOfWork</h1>
+          <br></br>
+          <br></br>
+          <h1 className="text-5xl font-bold mb-6">ProofOfWork</h1>
           <p className="text-lg text-gray-600">
             Welcome to ProofOfWork.
           </p>
