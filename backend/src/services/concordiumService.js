@@ -1,14 +1,15 @@
 const { ConcordiumGRPCClient, ConcordiumHdWallet } = require('@concordium/web-sdk');
-const HybridConcordiumService = require('./hybridConcordiumService');
+const LocalConcordiumService = require('./localConcordiumService');
 const axios = require('axios');
 
 class ConcordiumService {
   constructor() {
-    this.nodeUrl = process.env.CONCORDIUM_NODE_URL || 'https://testnet.concordium.com';
+    this.nodeUrl = process.env.CONCORDIUM_NODE_URL || 'http://localhost:20100';
     this.isTestnet = this.nodeUrl.includes('testnet');
+    this.isLocal = this.nodeUrl.includes('localhost');
     this.client = null;
-    this.hybridService = HybridConcordiumService;
-    this.useRealTransactions = process.env.USE_REAL_TRANSACTIONS === 'true';
+    this.localService = new LocalConcordiumService();
+    this.useLocalStack = process.env.USE_LOCAL_STACK === 'true' || this.isLocal;
     this.cache = new Map(); // Simple in-memory cache
     this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
     this.initializeClient();
@@ -40,7 +41,7 @@ class ConcordiumService {
     });
   }
 
-  // Verify Concordium Identity (Hybrid testnet integration)
+  // Verify Concordium Identity (Local stack integration)
   async verifyIdentity(concordiumAccount) {
     try {
       // Check cache first
@@ -50,45 +51,8 @@ class ConcordiumService {
         return cached;
       }
 
-      // Use hybrid service if enabled
-      if (this.useRealTransactions) {
-        const result = await this.hybridService.verifyIdentity(concordiumAccount);
-        this.setCache(cacheKey, result);
-        return result;
-      }
-
-      if (!this.client) {
-        throw new Error('Concordium client not initialized');
-      }
-
-      // Validate account format (Concordium accounts are base58 encoded)
-      if (!concordiumAccount || typeof concordiumAccount !== 'string') {
-        return { verified: false, error: 'Invalid account format' };
-      }
-
-      // For real integration, we would call:
-      // const accountInfo = await this.client.getAccountInfo(concordiumAccount);
-      
-      // For now, let's simulate but with real account format validation
-      const isValidFormat = concordiumAccount.length >= 48 && concordiumAccount.length <= 50;
-      
-      if (!isValidFormat) {
-        return { verified: false, error: 'Invalid Concordium account format' };
-      }
-
-      // Simulate successful verification for real testnet
-      const result = {
-        verified: true,
-        accountInfo: {
-          address: concordiumAccount,
-          network: 'testnet',
-          hasIdentity: true,
-          balance: '20000.0 CCD', // Your actual testnet balance
-          verified: true,
-          realAccount: true // Flag to indicate this is a real account
-        }
-      };
-
+      // Use local service for all operations
+      const result = await this.localService.verifyIdentity(concordiumAccount);
       this.setCache(cacheKey, result);
       return result;
       
@@ -101,188 +65,48 @@ class ConcordiumService {
   // Get account balance
   async getBalance(concordiumAccount) {
     try {
-      // Use hybrid service if enabled
-      if (this.useRealTransactions) {
-        return await this.hybridService.getBalance(concordiumAccount);
-      }
-
-      if (!this.client) {
-        throw new Error('Concordium client not initialized');
-      }
-
-      const accountInfo = await this.client.getAccountInfo(concordiumAccount);
-      return accountInfo ? accountInfo.accountAmount : 0;
+      // Use local service for all operations
+      return await this.localService.getBalance(concordiumAccount);
+      
     } catch (error) {
       console.error('Failed to get balance:', error.message);
       return 0;
     }
   }
 
-  // Create escrow payment (Hybrid testnet integration with Web SDK)
+  // Create escrow payment (Local stack integration)
   async createEscrowPayment(fromAccount, amount, jobId, workerAddress, location) {
     try {
-      // Use hybrid service if enabled
-      if (this.useRealTransactions) {
-        return await this.hybridService.createEscrowPayment(fromAccount, amount, jobId, workerAddress, location);
-      }
-
-      if (!this.client) {
-        throw new Error('Concordium client not initialized');
-      }
-
-      // Validate account format
-      const isValidFormat = fromAccount && fromAccount.length >= 48 && fromAccount.length <= 50;
-      if (!isValidFormat) {
-        throw new Error('Invalid Concordium account format');
-      }
-
-      // For real integration, we would:
-      // 1. Create a transaction to deploy/initialize escrow contract
-      // 2. Submit the transaction to testnet
-      // 3. Wait for confirmation
+      // Use local service for all operations
+      return await this.localService.createEscrowPayment(fromAccount, amount, jobId, workerAddress, location);
       
-      // For now, simulate real transaction creation
-      const transactionData = {
-        from: fromAccount,
-        to: 'PLT_ESCROW_CONTRACT', // Real contract address would go here
-        amount: amount,
-        token: 'PLT',
-        jobId: jobId,
-        timestamp: new Date().toISOString(),
-        type: 'escrow_create',
-        network: 'testnet',
-        realTransaction: true // Flag indicating this is a real transaction
-      };
-
-      // Generate a realistic transaction hash (in production, this would be from actual transaction)
-      const transactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
-      
-      console.log('🔒 Real PLT Escrow Transaction Created:', {
-        hash: transactionHash,
-        amount: `${amount} PLT`,
-        jobId: jobId,
-        from: fromAccount,
-        network: 'testnet',
-        status: 'pending_confirmation'
-      });
-      
-      // In production, you would:
-      // 1. Create the actual transaction using Concordium Web SDK
-      // 2. Sign it with your private key
-      // 3. Submit to testnet
-      // 4. Return the real transaction hash
-      
-      return {
-        hash: transactionHash,
-        status: 'pending_confirmation',
-        data: transactionData,
-        simulated: false, // Real testnet integration
-        network: 'testnet',
-        token: 'PLT',
-        realTransaction: true
-      };
     } catch (error) {
-      console.error('Real PLT Escrow creation failed:', error);
-      return {
-        success: false,
-        error: error.message,
-        simulated: false
-      };
+      console.error('Failed to create escrow payment:', error.message);
+      throw new Error(`Failed to create escrow payment: ${error.message}`);
     }
   }
 
-  // Release payment from escrow (Hybrid testnet integration)
+  // Release payment from escrow (Local stack integration)
   async releasePayment(toAccount, amount, jobId, workerLocation) {
     try {
-      // Use hybrid service if enabled
-      if (this.useRealTransactions) {
-        return await this.hybridService.releasePayment(toAccount, amount, jobId, workerLocation);
-      }
-
-      if (!this.client) {
-        throw new Error('Concordium client not initialized');
-      }
-
-      // Validate account format
-      const isValidFormat = toAccount && toAccount.length > 10;
-      if (!isValidFormat) {
-        throw new Error('Invalid Concordium account format');
-      }
-
-      // Simulate PLT payment release
-      const transactionData = {
-        from: 'PLT_ESCROW_CONTRACT',
-        to: toAccount,
-        amount: amount,
-        token: 'PLT',
-        jobId: jobId,
-        timestamp: new Date().toISOString(),
-        type: 'escrow_release',
-        network: 'testnet'
-      };
-
-      // Generate a realistic transaction hash
-      const transactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+      // Use local service for all operations
+      return await this.localService.releasePayment(toAccount, amount, jobId, workerLocation);
       
-      console.log('💰 PLT Payment released:', {
-        hash: transactionHash,
-        amount: `${amount} PLT`,
-        to: toAccount,
-        jobId: jobId
-      });
-      
-      return {
-        hash: transactionHash,
-        status: 'confirmed',
-        data: transactionData,
-        simulated: false, // Real testnet integration
-        network: 'testnet',
-        token: 'PLT'
-      };
     } catch (error) {
-      console.error('PLT Payment release failed:', error);
-      throw new Error('Failed to release PLT payment');
+      console.error('Failed to release payment:', error.message);
+      throw new Error(`Failed to release payment: ${error.message}`);
     }
   }
 
   // Verify location and create proof
   async verifyLocation(latitude, longitude, targetLatitude, targetLongitude, radius) {
     try {
-      // Use hybrid service if enabled
-      if (this.useRealTransactions) {
-        return await this.hybridService.verifyLocation(latitude, longitude, targetLatitude, targetLongitude, radius);
-      }
+      // Use local service for all operations
+      return await this.localService.verifyLocation(latitude, longitude, targetLatitude, targetLongitude, radius);
 
-      const distance = this.calculateDistance(latitude, longitude, targetLatitude, targetLongitude);
-      const isWithinRadius = distance <= radius;
-
-      const proofData = {
-        latitude,
-        longitude,
-        targetLatitude,
-        targetLongitude,
-        radius,
-        distance,
-        isWithinRadius,
-        timestamp: new Date().toISOString(),
-        accuracy: 5 // Simulated GPS accuracy
-      };
-
-      // Create blockchain proof (simulated)
-      const proofHash = `location_proof_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      console.log('Location verification proof created:', proofHash);
-      
-      return {
-        hash: proofHash,
-        verified: isWithinRadius,
-        distance: distance,
-        proof: proofData,
-        simulated: true
-      };
     } catch (error) {
-      console.error('Location verification failed:', error);
-      throw new Error('Failed to verify location');
+      console.error('Location verification failed:', error.message);
+      return { verified: false, error: error.message };
     }
   }
 

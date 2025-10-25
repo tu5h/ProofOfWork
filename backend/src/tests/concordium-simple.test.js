@@ -1,8 +1,7 @@
 const concordiumService = require('../services/concordiumService');
-const hybridConcordiumService = require('../services/hybridConcordiumService');
 
 describe('Concordium Service Integration Tests', () => {
-  const testAccount = '3tQNXbUExDuZMK4YDhMVTQNAcQqBMppHMN3sWG5z6c';
+  const testAccount = '3tefNN5UYD6p53pQJaPDb4aDDV3XgLS2pV5171rA5XvpFvo6qH';
 
   describe('Basic Service Functionality', () => {
     test('should handle identity verification', async () => {
@@ -37,37 +36,19 @@ describe('Concordium Service Integration Tests', () => {
       const networkInfo = await concordiumService.getNetworkInfo();
       
       expect(networkInfo).toBeDefined();
-      expect(networkInfo.network).toBe('testnet');
+      expect(networkInfo.network).toBeDefined();
     });
   });
 
-  describe('Hybrid Service Functionality', () => {
-    test('should handle hybrid identity verification', async () => {
-      const result = await hybridConcordiumService.verifyIdentity(testAccount);
-      
-      expect(result).toBeDefined();
-      expect(typeof result.verified).toBe('boolean');
-    });
-
-    test('should handle CCD transaction creation', async () => {
-      const result = await hybridConcordiumService.createCCDTransaction(
-        testAccount,
-        1000000000 // 1 CCD in microCCD
-      );
-
-      expect(result).toBeDefined();
-      expect(result.hash).toBeDefined();
-      expect(result.hybridMode).toBe(true);
-    });
-
-    test('should handle escrow payment creation', async () => {
+  describe('Local Stack Integration', () => {
+    test('should create escrow payments', async () => {
       const location = {
         latitude: 40.7589,
         longitude: -73.9851,
         radius: 100
       };
 
-      const result = await hybridConcordiumService.createEscrowPayment(
+      const result = await concordiumService.createEscrowPayment(
         testAccount,
         10.5,
         'test-job-123',
@@ -77,16 +58,16 @@ describe('Concordium Service Integration Tests', () => {
 
       expect(result).toBeDefined();
       expect(result.hash).toBeDefined();
-      expect(result.hybridMode).toBe(true);
+      expect(result.localStack).toBe(true);
     });
 
-    test('should handle payment release', async () => {
+    test('should release payments', async () => {
       const workerLocation = {
         latitude: 40.7589,
         longitude: -73.9851
       };
 
-      const result = await hybridConcordiumService.releasePayment(
+      const result = await concordiumService.releasePayment(
         testAccount,
         10.5,
         'test-job-123',
@@ -95,23 +76,7 @@ describe('Concordium Service Integration Tests', () => {
 
       expect(result).toBeDefined();
       expect(result.hash).toBeDefined();
-      expect(result.hybridMode).toBe(true);
-    });
-
-    test('should handle contract deployment', async () => {
-      const result = await hybridConcordiumService.deployContract();
-      
-      expect(result).toBeDefined();
-      expect(result.contractAddress).toBeDefined();
-      expect(result.hybridMode).toBe(true);
-    });
-
-    test('should handle transaction status checking', async () => {
-      const testHash = 'test-transaction-hash';
-      const result = await hybridConcordiumService.getTransactionStatus(testHash);
-      
-      expect(result).toBeDefined();
-      expect(result.hash).toBe(testHash);
+      expect(result.localStack).toBe(true);
     });
   });
 

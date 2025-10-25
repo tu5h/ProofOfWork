@@ -8,19 +8,15 @@
     "dev": "nodemon src/server.js",
     "seed": "node src/scripts/seedSupabase.js",
     "test": "jest",
-    "test:api": "node src/tests/api.test.js",
-    "test:comprehensive": "node src/tests/testRunner.js",
     "test:infrastructure": "jest src/tests/infrastructure.test.js",
     "test:profiles": "jest src/tests/profiles.test.js",
     "test:jobs": "jest src/tests/jobs.test.js",
-    "test:concordium": "jest src/tests/concordium.test.js",
+    "test:concordium": "jest src/tests/concordium-simple.test.js",
     "test:security": "jest src/tests/security.test.js",
     "test:performance": "jest src/tests/performance.test.js",
     "test:unit": "jest src/tests/unit.test.js",
     "test:all": "jest src/tests/",
-    "test:manual": "bash test-api.sh",
-    "test:manual:win": "test-api.bat",
-    "deploy:contracts": "node src/scripts/deployRealContracts.js"
+    "setup:local": "node -e \"console.log('Concordium Local Stack Setup:'); console.log('1. Install Docker Desktop and prerequisites'); console.log('2. Clone concordium-local-stack repository'); console.log('3. Run ./initialise.sh and docker compose up --detach'); console.log('4. Configure Concordium Wallet with local network'); console.log('5. Create account and request CCD tokens'); console.log('6. Run ./make-plts.sh to create your PLT token'); console.log('7. Copy env.local.example to .env'); console.log('8. Update .env with your local account details'); console.log('9. Restart server: npm run dev');\""
   },
   "dependencies": {
     "@concordium/web-sdk": "^7.0.0",
