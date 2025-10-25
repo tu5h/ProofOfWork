@@ -1,0 +1,10 @@
+{
+    "name": "POW",
+    "description": "ProofOfWork is a blockchain-based security solution that prevents payment fraud by verifying transaction location in real time using GPS.",
+    "thumbnail": {
+        "url": "https://raw.githubusercontent.com/tu5h/ProofOfWork/main/POW_icon.png"
+    },
+    "display": {
+        "url": "https://raw.githubusercontent.com/tu5h/ProofOfWork/main/POW_logo.png"
+    }
+}
