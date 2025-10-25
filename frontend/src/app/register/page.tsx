@@ -11,6 +11,15 @@ export default function RegisterPage() {
     async function handleRegister(e: React.FormEvent) {
         e.preventDefault();
 
+        const passwordRequirements = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
+
+        if (!passwordRequirements.test(password)) {
+          alert(
+            "Password must be at least 8 characters long and include uppercase, lowercase, a number, and a special character."
+          );
+          return;
+        }
+
         const res = await fetch("api/register", {
             method: "POST",
             headers: { "Content-Type" : "application/json" },
@@ -27,7 +36,9 @@ export default function RegisterPage() {
       {/* LEFT / misc - clipped on md+ */}
       <section className="w-full md:w-7/12 clip-diagonal bg-blue-50 flex items-center justify-center p-12 ">
         <div className="max-w-md text-center">
-          <h1 className="text-7xl font-bold mb-6">ProofOfWork</h1>
+          <br></br>
+          <br></br>
+          <h1 className="text-5xl font-bold mb-6">ProofOfWork</h1>
           <p className="text-lg text-gray-600">
             Welcome to ProofOfWork.
           </p>
@@ -52,6 +63,11 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <p className="text-sm text-gray-500 mt-2">
+              Password must include:
+              <br />• 8+ characters
+              <br />• Uppercase, lowercase, number, special character
+            </p>
             <button className="bg-blue-600 text-white py-3 rounded-lg text-lg hover:bg-blue-700 transition">
               Register
             </button>
