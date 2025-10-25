@@ -97,13 +97,15 @@ app.use('*', (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 ProofOfWork API server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 API Base URL: http://localhost:${PORT}/api/v1`);
-  console.log(`🗄️  Database: Supabase`);
-  console.log(`⛓️  Blockchain: Concordium ${process.env.CONCORDIUM_NODE_URL}`);
-});
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 ProofOfWork API server running on port ${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 API Base URL: http://localhost:${PORT}/api/v1`);
+    console.log(`🗄️  Database: Supabase`);
+    console.log(`⛓️  Blockchain: Concordium ${process.env.CONCORDIUM_NODE_URL}`);
+  });
+}
 
 module.exports = app;

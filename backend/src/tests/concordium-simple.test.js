@@ -1,0 +1,144 @@
+const concordiumService = require('../services/concordiumService');
+const hybridConcordiumService = require('../services/hybridConcordiumService');
+
+describe('Concordium Service Integration Tests', () => {
+  const testAccount = '3tQNXbUExDuZMK4YDhMVTQNAcQqBMppHMN3sWG5z6c';
+
+  describe('Basic Service Functionality', () => {
+    test('should handle identity verification', async () => {
+      const result = await concordiumService.verifyIdentity(testAccount);
+      
+      // Should return a result object with verified property
+      expect(result).toBeDefined();
+      expect(typeof result.verified).toBe('boolean');
+    });
+
+    test('should handle balance retrieval', async () => {
+      const balance = await concordiumService.getBalance(testAccount);
+      
+      // Should return a number
+      expect(typeof balance).toBe('number');
+      expect(balance).toBeGreaterThanOrEqual(0);
+    });
+
+    test('should handle location verification', async () => {
+      const result = await concordiumService.verifyLocation(
+        40.7589, -73.9851, // Worker location
+        40.7589, -73.9851, // Job location
+        100 // Radius
+      );
+
+      expect(result).toBeDefined();
+      expect(result.verified).toBe(true);
+      expect(typeof result.distance).toBe('number');
+    });
+
+    test('should handle network info retrieval', async () => {
+      const networkInfo = await concordiumService.getNetworkInfo();
+      
+      expect(networkInfo).toBeDefined();
+      expect(networkInfo.network).toBe('testnet');
+    });
+  });
+
+  describe('Hybrid Service Functionality', () => {
+    test('should handle hybrid identity verification', async () => {
+      const result = await hybridConcordiumService.verifyIdentity(testAccount);
+      
+      expect(result).toBeDefined();
+      expect(typeof result.verified).toBe('boolean');
+    });
+
+    test('should handle CCD transaction creation', async () => {
+      const result = await hybridConcordiumService.createCCDTransaction(
+        testAccount,
+        1000000000 // 1 CCD in microCCD
+      );
+
+      expect(result).toBeDefined();
+      expect(result.hash).toBeDefined();
+      expect(result.hybridMode).toBe(true);
+    });
+
+    test('should handle escrow payment creation', async () => {
+      const location = {
+        latitude: 40.7589,
+        longitude: -73.9851,
+        radius: 100
+      };
+
+      const result = await hybridConcordiumService.createEscrowPayment(
+        testAccount,
+        10.5,
+        'test-job-123',
+        testAccount,
+        location
+      );
+
+      expect(result).toBeDefined();
+      expect(result.hash).toBeDefined();
+      expect(result.hybridMode).toBe(true);
+    });
+
+    test('should handle payment release', async () => {
+      const workerLocation = {
+        latitude: 40.7589,
+        longitude: -73.9851
+      };
+
+      const result = await hybridConcordiumService.releasePayment(
+        testAccount,
+        10.5,
+        'test-job-123',
+        workerLocation
+      );
+
+      expect(result).toBeDefined();
+      expect(result.hash).toBeDefined();
+      expect(result.hybridMode).toBe(true);
+    });
+
+    test('should handle contract deployment', async () => {
+      const result = await hybridConcordiumService.deployContract();
+      
+      expect(result).toBeDefined();
+      expect(result.contractAddress).toBeDefined();
+      expect(result.hybridMode).toBe(true);
+    });
+
+    test('should handle transaction status checking', async () => {
+      const testHash = 'test-transaction-hash';
+      const result = await hybridConcordiumService.getTransactionStatus(testHash);
+      
+      expect(result).toBeDefined();
+      expect(result.hash).toBe(testHash);
+    });
+  });
+
+  describe('Error Handling', () => {
+    test('should handle invalid account gracefully', async () => {
+      const result = await concordiumService.verifyIdentity('invalid_account');
+      
+      expect(result.verified).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    test('should handle empty account gracefully', async () => {
+      const result = await concordiumService.verifyIdentity('');
+      
+      expect(result.verified).toBe(false);
+      expect(result.error).toBeDefined();
+    });
+
+    test('should handle location outside radius', async () => {
+      const result = await concordiumService.verifyLocation(
+        40.8000, -73.9000, // Worker location (far away)
+        40.7589, -73.9851, // Job location
+        100 // Radius
+      );
+
+      expect(result.verified).toBe(false);
+      expect(result.distance).toBeGreaterThan(100);
+    });
+  });
+});
