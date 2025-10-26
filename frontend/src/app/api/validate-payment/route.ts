@@ -64,12 +64,6 @@ export async function POST(req: Request) {
       console.log('✅ Job status is completed');
     }
 
-    // Rule 1: Require business approval
-    if (rules.require_business_approval && !businessApproval) {
-      console.log('❌ Business approval required but not provided');
-      validationErrors.push("Business approval is required");
-    }
-
     // Parse job location from PostGIS format
     let jobLat: number | undefined;
     let jobLng: number | undefined;

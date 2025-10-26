@@ -14,7 +14,7 @@ type Profile = {
   concordium_did?: boolean | null;
 };
 
-type JobStatus = "open" | "in_progress" | "completed" | "paid" | "cancelled";
+type JobStatus = "open" | "assigned" | "in_progress" | "completed" | "paid" | "cancelled";
 
 type JobRow = {
   id: UUID;
@@ -173,7 +173,7 @@ export default function WorkerDashboardPage() {
         .from("jobs")
         .select("id, title, description, amount_plt, location, radius_m, status, updated_at")
         .eq("worker_id", uid)
-        .order("updated_at", { ascending: false });
+        .order("updated_at", { ascending: false});
 
       setJobs((js as JobRow[]) || []);
     } catch (error) {
@@ -195,93 +195,152 @@ export default function WorkerDashboardPage() {
     setNotificationTimer(timer);
   };
 
-  // “Mark job as finished” (placeholder: geolocate + call RPC)
-  const markFinished = async (jobId: UUID) => {
+  // Update job status (replaces markFinished)
+  const updateJobStatus = async (jobId: UUID, newStatus: JobStatus) => {
     try {
-      if (!("geolocation" in navigator)) {
-        return alert("Geolocation not available on this device.");
-      }
-
-      console.log('=== STARTING JOB COMPLETION ===');
+      console.log('=== UPDATING JOB STATUS ===');
       console.log('Job ID:', jobId);
+      console.log('New Status:', newStatus);
 
-      // Get worker's current location
-      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          maximumAge: 0,
-          timeout: 10000
-        });
-      });
-
-      const workerLat = position.coords.latitude;
-      const workerLng = position.coords.longitude;
-
-      console.log('Worker location:', { workerLat, workerLng });
-
-      // FIRST: Update job status to completed
-      console.log('Updating job status to completed...');
-      const { error: updateError } = await supabase
-        .from("jobs")
-        .update({ status: "completed" })
-        .eq("id", jobId);
-
-      if (updateError) {
-        console.error('Error updating job status:', updateError);
-        throw updateError;
-      }
-
-      console.log('✅ Job status updated to completed');
-
-      // Wait for database to propagate
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      // THEN: Validate payment conditions
-      console.log('Calling payment validation API...');
-      const validationRes = await fetch("/api/validate-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jobId,
-          workerLat,
-          workerLng,
-          businessApproval: false
-        }),
-      });
-
-      console.log('Validation response status:', validationRes.status);
-
-      if (!validationRes.ok) {
-        const errorText = await validationRes.text();
-        console.error('Validation request failed:', errorText);
-        throw new Error("Payment validation request failed");
-      }
-
-      const validation = await validationRes.json();
-      console.log('Validation result:', validation);
-
-      if (!validation.valid) {
-        const errorMessage = `Job marked as complete, but payment cannot be released:\n\n${validation.errors.join("\n")}\n\nPlease contact the business for manual approval.`;
-        console.error('Validation failed:', errorMessage);
-        alert(errorMessage);
-        await reloadJobs();
+      // Get current user to verify authentication
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      
+      if (!uid) {
+        console.error('❌ User not authenticated');
+        alert('You must be logged in to update job status');
         return;
       }
 
-      // Success!
-      console.log('✅ Validation passed!');
-      if (validation.released) {
-        alert("Job completed and payment released automatically! 🎉");
-      } else if (validation.autoRelease) {
-        alert("Job marked as complete! Payment will be released automatically.");
+      console.log('Authenticated user:', uid);
+
+      // First, check what the job's current worker_id is
+      const { data: jobCheck, error: jobCheckError } = await supabase
+        .from("jobs")
+        .select("id, worker_id, status")
+        .eq("id", jobId)
+        .single();
+
+      if (jobCheckError) {
+        console.error('❌ Error checking job:', jobCheckError);
       } else {
-        alert("Job marked as complete! Waiting for business approval.");
+        console.log('Current job data in DB:', jobCheck);
+        console.log('Does worker_id match?', jobCheck.worker_id === uid);
       }
 
-      await reloadJobs();
-      console.log('=== JOB COMPLETION FINISHED ===');
+      // Optimistically update UI immediately
+      setJobs(prevJobs => 
+        prevJobs.map(j => j.id === jobId ? { ...j, status: newStatus } : j)
+      );
+
+      // Update job status in database (without worker_id filter to see if that's the issue)
+      console.log('Sending update to database...');
+      const { data: updateData, error: updateError } = await supabase
+        .from("jobs")
+        .update({ status: newStatus })
+        .eq("id", jobId)
+        .select();
+
+      if (updateError) {
+        console.error('❌ Database update error:', updateError);
+        console.error('Error details:', {
+          message: updateError.message,
+          details: updateError.details,
+          hint: updateError.hint,
+          code: updateError.code
+        });
+        // Revert optimistic update on error
+        await reloadJobs();
+        alert(`Failed to update job status: ${updateError.message}`);
+        throw updateError;
+      }
+
+      if (!updateData || updateData.length === 0) {
+        console.error('❌ No rows were updated. This might mean the job does not belong to this worker.');
+        await reloadJobs();
+        alert('Failed to update job status. This job may not be assigned to you.');
+        return;
+      }
+
+      console.log('✅ Database response:', updateData);
+      console.log(`✅ Job status updated to ${newStatus} in database`);
+
+      // If status is "completed", validate payment and get location
+      if (newStatus === "completed") {
+        if (!("geolocation" in navigator)) {
+          alert("Job marked as completed, but location verification requires geolocation.");
+          await reloadJobs();
+          return;
+        }
+
+        // Get worker's current location
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 10000
+          });
+        });
+
+        const workerLat = position.coords.latitude;
+        const workerLng = position.coords.longitude;
+
+        console.log('Worker location:', { workerLat, workerLng });
+
+        // Wait for database to propagate
+        await new Promise(resolve => setTimeout(resolve, 2500));
+
+        // Validate payment conditions
+        console.log('Calling payment validation API...');
+        const validationRes = await fetch("/api/validate-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jobId,
+            workerLat,
+            workerLng,
+            businessApproval: false
+          }),
+        });
+
+        console.log('Validation response status:', validationRes.status);
+
+        if (!validationRes.ok) {
+          const errorText = await validationRes.text();
+          console.error('Validation request failed:', errorText);
+          throw new Error("Payment validation request failed");
+        }
+
+        const validation = await validationRes.json();
+        console.log('Validation result:', validation);
+
+        if (!validation.valid) {
+          const errorMessage = `Job marked as complete, but payment cannot be released:\n\n${validation.errors.join("\n")}\n\nYou must be at the job location to complete it.`;
+          console.error('Validation failed:', errorMessage);
+          alert(errorMessage);
+          await reloadJobs();
+          return;
+        }
+
+        // Success!
+        console.log('✅ Validation passed!');
+        if (validation.released) {
+          alert("Job completed and payment released automatically! 🎉");
+        } else if (validation.autoRelease) {
+          alert("Job marked as complete! Payment will be released shortly.");
+        } else {
+          alert("Job marked as complete successfully! ✅");
+        }
+        await reloadJobs();
+      }
+      // For non-completed statuses, no alert needed - UI already updated
+      
+      console.log('=== JOB STATUS UPDATE FINISHED ===');
     } catch (e: any) {
-      console.error('❌ Error in markFinished:', e);
-      alert(e?.message || "Could not mark as finished.");
+      console.error('❌ Error updating job status:', e);
+      alert(e?.message || "Could not update job status.");
+      // Reload to get accurate state from database
+      await reloadJobs();
     }
   };
 
@@ -411,7 +470,17 @@ export default function WorkerDashboardPage() {
                           <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
                             <div><span className="text-gray-500">Amount (PLT): </span><span className="font-semibold">{job.amount_plt ?? "—"}</span></div>
                             <div><span className="text-gray-500">Radius (m): </span><span className="font-semibold">{job.radius_m ?? "—"}</span></div>
-                            <div><span className="text-gray-500">Status: </span><span className="font-semibold capitalize">{job.status}</span></div>
+                            <div>
+                              <span className="text-gray-500">Status: </span>
+                              <span className={`font-semibold capitalize ${
+                                job.status === 'completed' ? 'text-green-600' :
+                                job.status === 'paid' ? 'text-blue-600' :
+                                job.status === 'cancelled' ? 'text-red-600' :
+                                'text-gray-800'
+                              }`}>
+                                {job.status}
+                              </span>
+                            </div>
                             <div className="col-span-2">
                               <span className="text-gray-500">Location: </span>
                               <span className="font-mono">
@@ -422,12 +491,27 @@ export default function WorkerDashboardPage() {
                         </div>
 
                         <div className="w-full md:w-60 shrink-0 flex flex-col gap-2">
-                          <button
-                            className="w-full bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition text-center"
-                            onClick={() => markFinished(job.id)}
+                          {/* Status Dropdown */}
+                          <select
+                            className="border border-gray-300 p-2 rounded-lg text-sm bg-white"
+                            value={job.status}
+                            onChange={(e) => updateJobStatus(job.id, e.target.value as JobStatus)}
+                            disabled={job.status === 'paid' || job.status === 'cancelled'}
                           >
-                            Mark job as finished
-                          </button>
+                            <option value="open">Open</option>
+                            <option value="assigned">Assigned</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="completed">Completed</option>
+                            <option value="paid" disabled>Paid</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
+                          
+                          <p className="text-xs text-gray-500">
+                            {job.status === 'paid' ? '✅ Payment released' :
+                             job.status === 'cancelled' ? '❌ Job cancelled' :
+                             job.status === 'completed' ? '⏳ Awaiting payment' :
+                             'Update status above'}
+                          </p>
                         </div>
                       </div>
                     </li>
