@@ -3,28 +3,28 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+// ⬇️ same client you use elsewhere (adjust path if yours lives in /lib)
+import { supabase } from "@/lib/supabaseClient";
 
 type UUID = string;
 
 type Profile = {
   id: UUID;
-  role?: "worker" | "business" | "admin" | null;
   display_name?: string | null;
-  concordium_account?: string | null;
   concordium_did?: boolean | null;
 };
 
 type JobStatus = "open" | "in_progress" | "completed" | "paid" | "cancelled";
 
-type Job = {
+type JobRow = {
   id: UUID;
   title?: string | null;
   description?: string | null;
   amount_plt?: number | null;
-  location?: { lat: number; lng: number } | null;
+  location?: any | null;           // PostGIS GeoJSON or {lat,lng}
   radius_m?: number | null;
   status: JobStatus;
-  release_if_nearby?: boolean;
+  updated_at?: string | null;
 };
 
 type Notification = {
@@ -35,16 +35,135 @@ type Notification = {
   created_at: string;
 };
 
+function toLatLng(loc: any): { lat?: number; lng?: number } {
+  // Handle PostGIS WKB binary format (hex string)
+  if (typeof loc === "string" && loc.startsWith("0101000020E6100000")) {
+    try {
+      // Extract the coordinate bytes from the WKB
+      // WKB format: 0101000020E6100000 + 16 bytes for coordinates (8 bytes each for lng, lat)
+      const coordBytes = loc.slice(18); // Remove the header
+      
+      // Convert hex to bytes and parse as double precision floats
+      const lngHex = coordBytes.slice(0, 16);
+      const latHex = coordBytes.slice(16, 32);
+      
+      // Convert from little-endian hex to double (browser-compatible)
+      const lngBytes = new Uint8Array(8);
+      const latBytes = new Uint8Array(8);
+      
+      for (let i = 0; i < 8; i++) {
+        lngBytes[i] = parseInt(lngHex.slice(i * 2, i * 2 + 2), 16);
+        latBytes[i] = parseInt(latHex.slice(i * 2, i * 2 + 2), 16);
+      }
+      
+      const lngView = new DataView(lngBytes.buffer);
+      const latView = new DataView(latBytes.buffer);
+      
+      const lng = lngView.getFloat64(0, true); // little-endian
+      const lat = latView.getFloat64(0, true); // little-endian
+      
+      return { lat, lng };
+    } catch (err) {
+      console.error('Error parsing WKB location:', err);
+    }
+  }
+  
+  // Handles PostGIS GeoJSON: { type: 'Point', coordinates: [lng, lat] }
+  if (loc && typeof loc === "object") {
+    if (Array.isArray(loc.coordinates) && loc.coordinates.length >= 2) {
+      const [lng, lat] = loc.coordinates;
+      return { lat: typeof lat === "number" ? lat : undefined, lng: typeof lng === "number" ? lng : undefined };
+    }
+    // Plain { lat, lng }
+    if (typeof loc.lat === "number" && typeof loc.lng === "number") {
+      return { lat: loc.lat, lng: loc.lng };
+    }
+  }
+  return {};
+}
+
 export default function WorkerDashboardPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobs, setJobs] = useState<JobRow[]>([]);
   const [notifs, setNotifs] = useState<Notification[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [notificationTimer, setNotificationTimer] = useState<NodeJS.Timeout | null>(null);
 
+  const unseenCount = useMemo(() => notifs.length, [notifs]);
+
+  // Load current worker (profile) + jobs assigned to them
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    (async () => {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        const uid = auth.user?.id;
+        if (!uid) {
+          router.push("/login");
+          return;
+        }
+
+        // Sidebar profile
+        const { data: me } = await supabase
+          .from("profiles")
+          .select("id, display_name, concordium_did")
+          .eq("id", uid)
+          .maybeSingle();
+        setProfile(me as Profile | null);
+
+        // Assigned jobs for this worker
+        const { data: js } = await supabase
+          .from("jobs")
+          .select("id, title, description, amount_plt, location, radius_m, status, updated_at")
+          .eq("worker_id", uid)
+          .order("updated_at", { ascending: false });
+        setJobs((js as JobRow[]) || []);
+
+        // Realtime assignments/updates for this worker (lightweight notifications)
+        channel = supabase
+          .channel(`jobs-for-${uid}`)
+          .on(
+            "postgres_changes",
+            { event: "INSERT", schema: "public", table: "jobs", filter: `worker_id=eq.${uid}` },
+            (payload) => {
+              const row = payload.new as JobRow;
+              setNotifs((prev) => [
+                {
+                  id: `ins-${row.id}-${Date.now()}`,
+                  type: "assignment",
+                  jobId: row.id,
+                  message: `You were assigned a new job: ${row.title || "Untitled job"}`,
+                  created_at: new Date().toISOString(),
+                },
+                ...prev,
+              ]);
+              setJobs((prev) => [row, ...prev]);
+            }
+          )
+          .on(
+            "postgres_changes",
+            { event: "UPDATE", schema: "public", table: "jobs", filter: `worker_id=eq.${uid}` },
+            (payload) => {
+              const row = payload.new as JobRow;
+              setJobs((prev) => prev.map((j) => (j.id === row.id ? row : j)));
+            }
+          )
+          .subscribe();
+      } finally {
+        setLoading(false);
+      }
+    })();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [router]);
+
+  // Notification tray hover handlers (unchanged)
   const handleNotificationMouseEnter = () => {
     if (notificationTimer) {
       clearTimeout(notificationTimer);
@@ -54,31 +173,33 @@ export default function WorkerDashboardPage() {
   };
 
   const handleNotificationMouseLeave = () => {
-    const timer = setTimeout(() => {
-      setShowNotifications(false);
-    }, 200);
+    const timer = setTimeout(() => setShowNotifications(false), 200);
     setNotificationTimer(timer);
   };
 
-  useEffect(() => {
-    (async () => {
-      try {
-        // TODO: replace with your real endpoints
-        // const me = await fetch("/api/me").then(r => r.json());
-        // const js = await fetch("/api/worker/jobs").then(r => r.json());
-        // const ns = await fetch("/api/worker/notifications").then(r => r.json());
-        // setProfile(me);
-        // setJobs(Array.isArray(js) ? js : []);
-        // setNotifs(Array.isArray(ns) ? ns : []);
-      } catch (e) {
-        // Optional: handle errors
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
+  // “Mark job as finished” (placeholder: geolocate + call RPC)
+  const markFinished = async (jobId: UUID) => {
+    try {
+      if (!("geolocation" in navigator)) return alert("Geolocation not available on this device.");
 
-  const unseenCount = useMemo(() => notifs.length, [notifs]);
+      await new Promise<void>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          () => resolve(),
+          (err) => reject(err),
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        );
+      });
+
+      // TODO: implement your edge function / RPC. Example call:
+      // const { error } = await supabase.rpc("worker_mark_complete", { p_job_id: jobId });
+      // if (error) throw error;
+
+      alert("Submitted completion request (demo)."); // keep UI feedback for MVP
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || "Could not mark as finished.");
+    }
+  };
 
   if (loading) {
     return (
@@ -91,6 +212,7 @@ export default function WorkerDashboardPage() {
   return (
     <main className="min-h-screen bg-blue-50/40">
       <div className="min-h-screen flex">
+        {/* SIDEBAR */}
         <aside className="w-full md:w-64 bg-white shadow-xl md:rounded-r-2xl p-6 flex md:flex-col gap-4 items-center md:items-stretch md:sticky md:top-0">
           <div className="hidden md:block">
             <h1 className="text-2xl font-bold">ProofOfWork</h1>
@@ -110,38 +232,18 @@ export default function WorkerDashboardPage() {
           </div>
 
           <nav className="w-full flex md:flex-col gap-2 items-center md:items-stretch">
-            <button 
+            <button
               onClick={() => router.push("/dashboard/worker")}
               className={`w-full p-3 rounded-lg text-left transition-colors ${
-                typeof window !== 'undefined' && window.location.pathname === "/dashboard/worker" 
-                  ? "bg-blue-100 text-blue-700" 
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/worker"
+                  ? "bg-blue-100 text-blue-700"
                   : "hover:bg-gray-50"
               }`}
             >
               Home
             </button>
-            <button 
-              onClick={() => router.push("/dashboard/profile")}
-              className={`w-full p-3 rounded-lg text-left transition-colors ${
-                typeof window !== 'undefined' && window.location.pathname === "/dashboard/profile" 
-                  ? "bg-blue-100 text-blue-700" 
-                  : "hover:bg-gray-50"
-              }`}
-            >
-              Profile
-            </button>
-            <button 
-              onClick={() => router.push("/dashboard/settings")}
-              className={`w-full p-3 rounded-lg text-left transition-colors ${
-                typeof window !== 'undefined' && window.location.pathname === "/dashboard/settings" 
-                  ? "bg-blue-100 text-blue-700" 
-                  : "hover:bg-gray-50"
-              }`}
-            >
-              Settings
-            </button>
 
-            <div 
+            <div
               className="relative w-full"
               onMouseEnter={handleNotificationMouseEnter}
               onMouseLeave={handleNotificationMouseLeave}
@@ -185,9 +287,31 @@ export default function WorkerDashboardPage() {
                 </div>
               )}
             </div>
+
+            <button
+              onClick={() => router.push("/dashboard/profile")}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/profile"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              Profile
+            </button>
+            <button
+              onClick={() => router.push("/dashboard/settings")}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/settings"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              Settings
+            </button>
           </nav>
         </aside>
 
+        {/* MAIN */}
         <section className="flex-1 p-6 md:p-10 pt-24 md:pt-28 lg:pt-32">
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-6">
@@ -200,32 +324,39 @@ export default function WorkerDashboardPage() {
               </div>
             ) : (
               <ul className="flex flex-col gap-4">
-                {jobs.map((job) => (
-                  <li key={job.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold">{job.title || "Untitled job"}</h3>
-                        <p className="text-gray-600">{job.description || "—"}</p>
-                        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                          <div><span className="text-gray-500">Amount (PLT): </span><span className="font-semibold">{job.amount_plt ?? "—"}</span></div>
-                          <div><span className="text-gray-500">Radius (m): </span><span className="font-semibold">{job.radius_m ?? "—"}</span></div>
-                          <div><span className="text-gray-500">Status: </span><span className="font-semibold capitalize">{job.status}</span></div>
-                          <div className="col-span-2"><span className="text-gray-500">Location: </span><span className="font-mono">{job.location ? `${job.location.lat}, ${job.location.lng}` : "—"}</span></div>
-                          <div><span className="text-gray-500">Auto-release: </span><span className="font-semibold">{job.release_if_nearby ? "Enabled" : "Disabled"}</span></div>
+                {jobs.map((job) => {
+                  const { lat, lng } = toLatLng(job.location);
+                  return (
+                    <li key={job.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold">{job.title || "Untitled job"}</h3>
+                          <p className="text-gray-600">{job.description || "—"}</p>
+                          <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                            <div><span className="text-gray-500">Amount (PLT): </span><span className="font-semibold">{job.amount_plt ?? "—"}</span></div>
+                            <div><span className="text-gray-500">Radius (m): </span><span className="font-semibold">{job.radius_m ?? "—"}</span></div>
+                            <div><span className="text-gray-500">Status: </span><span className="font-semibold capitalize">{job.status}</span></div>
+                            <div className="col-span-2">
+                              <span className="text-gray-500">Location: </span>
+                              <span className="font-mono">
+                                {lat !== undefined && lng !== undefined ? `${lat.toFixed(3)}, ${lng.toFixed(3)}` : "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="w-full md:w-60 shrink-0 flex flex-col gap-2">
+                          <button
+                            className="w-full bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition text-center"
+                            onClick={() => markFinished(job.id)}
+                          >
+                            Mark job as finished
+                          </button>
                         </div>
                       </div>
-
-                      <div className="w-full md:w-60 shrink-0 flex flex-col gap-2">
-                        <button
-                          className="w-full bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition text-center"
-                          onClick={() => { /* will call geolocation + Supabase RPC in real flow */ }}
-                        >
-                          Mark job as finished
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
