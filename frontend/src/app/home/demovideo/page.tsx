@@ -14,7 +14,7 @@ export default function DemoVideo() {
         <div className="[aspect-ratio:16/9]">
           <iframe
             className="w-full h-full"
-            src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+            src=""
             title="ProofOfWork Demo"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
             referrerPolicy="strict-origin-when-cross-origin"
