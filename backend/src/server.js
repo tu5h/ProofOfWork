@@ -7,6 +7,7 @@ require('dotenv').config();
 // Import routes
 const profileRoutes = require('./routes/profiles');
 const jobRoutes = require('./routes/jobs');
+const verificationRoutes = require('./routes/verification');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -17,19 +18,7 @@ const PORT = process.env.PORT || 5000;
 // Security middleware
 app.use(helmet());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
-  message: {
-    success: false,
-    message: 'Too many requests from this IP, please try again later.'
-  }
-});
-
-app.use(limiter);
-
-// CORS configuration
+// CORS configuration - MUST come before body parsers
 const corsOptions = {
   origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
   credentials: true,
@@ -38,9 +27,21 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Body parsing middleware
+// Body parsing middleware - MUST come after CORS
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later.'
+  }
+});
+
+app.use(limiter);
 
 // Health check endpoint
 app.get('/health', async (req, res) => {
@@ -66,10 +67,6 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// API routes
-app.use('/api/v1/profiles', profileRoutes);
-app.use('/api/v1/jobs', jobRoutes);
-
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -79,12 +76,18 @@ app.get('/', (req, res) => {
     endpoints: {
       health: '/health',
       profiles: '/api/v1/profiles',
-      jobs: '/api/v1/jobs'
+      jobs: '/api/v1/jobs',
+      verification: '/api/verify-location'
     },
     database: 'Supabase',
     blockchain: process.env.CONCORDIUM_NODE_URL?.includes('localhost') ? 'Concordium P9 Localnet' : 'Concordium'
   });
 });
+
+// API routes
+app.use('/api/v1/profiles', profileRoutes);
+app.use('/api/v1/jobs', jobRoutes);
+app.use('/api', verificationRoutes);  // This handles /api/verify-location
 
 // 404 handler
 app.use('*', (req, res) => {

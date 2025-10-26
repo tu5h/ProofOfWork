@@ -96,10 +96,20 @@ export default function DashboardProfilePage() {
             </div>
           </div>
 
-          <nav className="w-full flex md:flex-col gap-2 items-center md:items-stretch">
-            <a href="/dashboard/worker" className="w-full p-3 rounded-lg hover:bg-gray-50 text-left">Home</a>
-            <a href="/dashboard/profile" className="w-full p-3 rounded-lg text-left bg-blue-50 text-blue-700 font-medium">Profile</a>
-            <a href="/dashboard/settings" className="w-full p-3 rounded-lg hover:bg-gray-50 text-left">Settings</a>
+          <nav className="w-full flex md:flex-col gap-2 items-center md:items-stretch md:h-full">
+            <a 
+              href={profile?.role === 'business' ? "/dashboard/business" : "/dashboard/worker"} 
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== "undefined" && (
+                  (profile?.role === 'business' && window.location.pathname === "/dashboard/business") ||
+                  (profile?.role !== 'business' && window.location.pathname === "/dashboard/worker")
+                )
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              Home
+            </a>
 
             {/* Notifications with hover tray */}
             <div className="relative group w-full">
@@ -137,6 +147,28 @@ export default function DashboardProfilePage() {
                 </ul>
               </div>
             </div>
+
+            {/* Profile and Settings buttons */}
+            <a 
+              href="/dashboard/profile" 
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/profile"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              Profile
+            </a>
+            <a 
+              href="/dashboard/settings" 
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/settings"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-50"
+              }`}
+            >
+              Settings
+            </a>
           </nav>
         </aside>
 
