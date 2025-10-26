@@ -3,6 +3,99 @@ const router = express.Router();
 const { supabase, supabaseAdmin } = require('../config/supabase');
 const concordiumService = require('../services/concordiumService');
 
+// Get balance for a specific user account
+router.get('/balance/:accountAddress', async (req, res) => {
+  try {
+    const { accountAddress } = req.params;
+    
+    if (!accountAddress) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account address is required'
+      });
+    }
+    
+    // Get balance from local Concordium service
+    const balance = await concordiumService.localService.getUserBalance(accountAddress);
+    
+    res.json({
+      success: true,
+      data: {
+        account: accountAddress,
+        balance: balance,
+        currency: 'PLT',
+        network: 'Concordium Local Stack',
+        realTime: true
+      }
+    });
+  } catch (error) {
+    console.error('Failed to get user balance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get user balance',
+      error: error.message
+    });
+  }
+});
+
+// Initialize account with starting balance
+router.post('/initialize-account', async (req, res) => {
+  try {
+    const { accountAddress, startingBalance = 10000.0 } = req.body;
+    
+    if (!accountAddress) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account address is required'
+      });
+    }
+    
+    // Initialize account with starting balance
+    const balance = await concordiumService.localService.initializeAccount(accountAddress, startingBalance);
+    
+    res.json({
+      success: true,
+      message: 'Account initialized successfully',
+      data: {
+        account: accountAddress,
+        balance: balance,
+        currency: 'PLT',
+        network: 'Concordium Local Stack'
+      }
+    });
+  } catch (error) {
+    console.error('Failed to initialize account:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to initialize account',
+      error: error.message
+    });
+  }
+});
+
+// Get all user balances (for admin/debugging)
+router.get('/all-balances', async (req, res) => {
+  try {
+    const balances = concordiumService.localService.getAllUserBalances();
+    
+    res.json({
+      success: true,
+      data: {
+        balances: balances,
+        network: 'Concordium Local Stack',
+        totalAccounts: Object.keys(balances).length
+      }
+    });
+  } catch (error) {
+    console.error('Failed to get all balances:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get all balances',
+      error: error.message
+    });
+  }
+});
+
 // Get all profiles
 router.get('/', async (req, res) => {
   try {

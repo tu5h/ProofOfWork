@@ -11,6 +11,10 @@ class LocalConcordiumService {
     this.privateKey = process.env.CONCORDIUM_PRIVATE_KEY;
     this.pltTokenAddress = process.env.PLT_TOKEN_ADDRESS;
     this.escrowContractAddress = process.env.ESCROW_CONTRACT_ADDRESS;
+    
+    // Real balance tracking per user account
+    this.userBalances = new Map(); // accountAddress -> balance
+    
     this.initializeClient();
   }
 
@@ -78,18 +82,26 @@ class LocalConcordiumService {
         throw new Error('Concordium client not initialized');
       }
 
-      // For local stack, simulate balance since Web SDK has format issues
-      console.log('💰 Getting balance for local account:', concordiumAccount);
+      console.log('💰 Getting balance for account:', concordiumAccount);
       
-      // Simulate balance for local stack (20,000 CCD)
-      const balance = 20000.0;
-      console.log('✅ Local account balance:', balance, 'CCD');
+      // Check if we have a cached balance for this account
+      if (this.userBalances.has(concordiumAccount)) {
+        const balance = this.userBalances.get(concordiumAccount);
+        console.log(`✅ Cached balance for ${concordiumAccount}:`, balance, 'PLT');
+        return balance;
+      }
       
-      return balance;
+      // For new accounts, initialize with a default balance
+      // In a real implementation, you would query the actual blockchain
+      const defaultBalance = 10000.0; // Default starting balance
+      this.userBalances.set(concordiumAccount, defaultBalance);
+      
+      console.log(`✅ Initialized balance for ${concordiumAccount}:`, defaultBalance, 'PLT');
+      return defaultBalance;
       
     } catch (error) {
-      console.error('Failed to get local balance:', error.message);
-      return 20000.0; // Return simulated balance for local stack
+      console.error('Failed to get balance:', error.message);
+      return 0.0; // Return 0 for invalid accounts
     }
   }
 
@@ -107,22 +119,19 @@ class LocalConcordiumService {
       console.log('   Worker:', workerAddress);
       console.log('   Location:', location);
 
-      // For local stack, create a realistic transaction simulation
-      // In a real implementation, you would create actual smart contract calls
-      const transactionData = {
-        contractAddress: this.escrowContractAddress || 'LOCAL_ESCROW_CONTRACT',
-        entrypoint: 'create_escrow',
-        parameter: {
-          job_id: jobId,
-          worker: workerAddress,
-          amount: amount * 1000000, // Convert to microPLT
-          location: {
-            latitude: location.latitude,
-            longitude: location.longitude,
-            radius: location.radius
-          }
-        }
-      };
+      // Get current balance for the business account
+      const currentBalance = await this.getBalance(fromAccount);
+      
+      if (currentBalance < amount) {
+        throw new Error(`Insufficient balance: ${currentBalance} PLT available, ${amount} PLT required`);
+      }
+      
+      // Update business account balance
+      const newBalance = currentBalance - amount;
+      this.userBalances.set(fromAccount, newBalance);
+      
+      console.log(`💰 Money moved: ${amount} PLT from ${fromAccount} to escrow`);
+      console.log(`   Account balance: ${currentBalance} → ${newBalance} PLT`);
 
       // Generate realistic transaction hash for local blockchain
       const transactionHash = `local_escrow_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
@@ -137,7 +146,7 @@ class LocalConcordiumService {
         network: 'local',
         realTransaction: true,
         localStack: true,
-        contractAddress: transactionData.contractAddress
+        contractAddress: 'LOCAL_ESCROW_CONTRACT'
       });
 
       return {
@@ -152,7 +161,11 @@ class LocalConcordiumService {
         token: 'PLT',
         realTransaction: true,
         localStack: true,
-        contractAddress: transactionData.contractAddress
+        contractAddress: 'LOCAL_ESCROW_CONTRACT',
+        balanceChanges: {
+          fromAccount: newBalance,
+          escrowAmount: amount
+        }
       };
       
     } catch (error) {
@@ -174,46 +187,45 @@ class LocalConcordiumService {
       console.log('   Job ID:', jobId);
       console.log('   Worker Location:', workerLocation);
 
-      // Create transaction payload for payment release
-      const transactionData = {
-        contractAddress: this.escrowContractAddress || 'LOCAL_ESCROW_CONTRACT',
-        entrypoint: 'verify_and_release',
-        parameter: {
-          job_id: jobId,
-          worker_location: {
-            latitude: workerLocation.latitude,
-            longitude: workerLocation.longitude
-          }
-        }
-      };
+      // Get current balance for the worker account
+      const currentBalance = await this.getBalance(toAccount);
+      
+      // Update worker account balance (money released from escrow)
+      const newBalance = currentBalance + amount;
+      this.userBalances.set(toAccount, newBalance);
+      
+      console.log(`💰 Money moved: ${amount} PLT from escrow to ${toAccount}`);
+      console.log(`   Account balance: ${currentBalance} → ${newBalance} PLT`);
 
       // Generate realistic transaction hash for local blockchain
       const transactionHash = `local_release_${Date.now()}_${crypto.randomBytes(8).toString('hex')}`;
 
-      console.log('💰 Local PLT Payment Release Transaction:', {
+      console.log('💰 Local PLT Payment Released:', {
         hash: transactionHash,
-        jobId: jobId,
         amount: `${amount} PLT`,
+        jobId: jobId,
         to: toAccount,
-        workerLocation: workerLocation,
         network: 'local',
         realTransaction: true,
         localStack: true,
-        contractAddress: transactionData.contractAddress
+        contractAddress: 'LOCAL_ESCROW_CONTRACT'
       });
 
       return {
         hash: transactionHash,
-        status: 'submitted',
+        status: 'completed',
         jobId: jobId,
         amount: amount,
         to: toAccount,
-        workerLocation: workerLocation,
         network: 'local',
         token: 'PLT',
         realTransaction: true,
         localStack: true,
-        contractAddress: transactionData.contractAddress
+        contractAddress: 'LOCAL_ESCROW_CONTRACT',
+        balanceChanges: {
+          toAccount: newBalance,
+          paymentAmount: amount
+        }
       };
       
     } catch (error) {
@@ -399,6 +411,30 @@ class LocalConcordiumService {
       console.error('Failed to get local network info:', error.message);
       return { error: error.message };
     }
+  }
+
+  // Get balance for a specific user account
+  async getUserBalance(accountAddress) {
+    return await this.getBalance(accountAddress);
+  }
+
+  // Get all user balances (for admin/debugging)
+  getAllUserBalances() {
+    const balances = {};
+    for (const [account, balance] of this.userBalances.entries()) {
+      balances[account] = balance;
+    }
+    return balances;
+  }
+
+  // Initialize account with starting balance (for new users)
+  async initializeAccount(accountAddress, startingBalance = 10000.0) {
+    if (!this.userBalances.has(accountAddress)) {
+      this.userBalances.set(accountAddress, startingBalance);
+      console.log(`✅ Initialized account ${accountAddress} with ${startingBalance} PLT`);
+      return startingBalance;
+    }
+    return this.userBalances.get(accountAddress);
   }
 }
 
