@@ -1,19 +1,61 @@
-// app/api/register/route.ts
 import { NextResponse } from "next/server";
-import { addUser, userExists } from "@/lib/users";
-
+import { createServerClient } from "@/lib/supabaseClient";
 
 export async function POST(req: Request) {
-  const { username, password } = await req.json();
+  try {
+    const { email, password, username } = await req.json();
 
-  if (!username || !password) {
-    return NextResponse.json({ message: "Missing username or password" }, { status: 400 });
+    // Validation
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: "Email and password are required" },
+        { status: 400 }
+      );
+    }
+
+    // Password requirements
+    const passwordRequirement = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
+    if (!passwordRequirement.test(password)) {
+      return NextResponse.json(
+        {
+          error:
+            "Password must be at least 8 characters long, include uppercase, lowercase, a number, and a special character.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createServerClient();
+
+    // Register user with Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          username: username || email.split('@')[0], // Optional username
+        },
+      },
+    });
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    return NextResponse.json(
+      {
+        message: "Registration successful",
+        user: {
+          id: data.user?.id,
+          email: data.user?.email,
+        },
+      },
+      { status: 201 }
+    );
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
-
-  if (userExists(username)) {
-    return NextResponse.json({ message: "User already exists" }, { status: 400 });
-  }
-
-  addUser({username, password});
-  return NextResponse.json({ message: "Registration successful"});
 }
