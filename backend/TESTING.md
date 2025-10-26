@@ -1,296 +1,299 @@
-# Testing Our ProofOfWork Backend API
+# Backend Testing Suite Documentation
 
-Here are several ways we can test our backend API to ensure everything works correctly.
+## Overview
 
-## 🚀 Quick Start Testing
+This comprehensive testing suite provides production-level testing for the ProofOfWork backend API. It includes individual component tests, integration tests, security tests, and performance benchmarks.
 
-### 1. Start the Server
+## Test Structure
+
+### Test Categories
+
+1. **Infrastructure Tests** (`infrastructure.test.js`)
+   - Server startup and health checks
+   - Database connection verification
+   - Concordium blockchain connection
+   - Security headers validation
+   - Rate limiting enforcement
+
+2. **API Endpoint Tests** (`profiles.test.js`, `jobs.test.js`)
+   - CRUD operations for profiles and jobs
+   - Input validation and error handling
+   - Pagination and filtering
+   - Data integrity checks
+
+3. **Concordium Integration Tests** (`concordium.test.js`)
+   - Identity verification
+   - Balance checking
+   - Escrow creation and management
+   - Location verification
+   - Payment release
+   - Smart contract interactions
+
+4. **Security Tests** (`security.test.js`)
+   - SQL injection prevention
+   - XSS protection
+   - Input validation
+   - Rate limiting
+   - CORS security
+   - Error information disclosure
+
+5. **Performance Tests** (`performance.test.js`)
+   - Concurrent request handling
+   - Large dataset processing
+   - Memory usage monitoring
+   - Response time benchmarks
+   - Load testing simulation
+
+6. **Integration Tests** (`comprehensive.test.js`)
+   - End-to-end workflows
+   - Complete job lifecycle
+   - Cross-service integration
+   - Error scenario handling
+
+## Running Tests
+
+### Individual Test Categories
+
 ```bash
-cd backend
-npm run dev
+# Run infrastructure tests
+npm run test:infrastructure
+
+# Run API endpoint tests
+npm run test:profiles
+npm run test:jobs
+
+# Run Concordium integration tests
+npm run test:concordium
+
+# Run security tests
+npm run test:security
+
+# Run performance tests
+npm run test:performance
 ```
 
-### 2. Basic Health Check
+### Comprehensive Testing
+
 ```bash
-curl http://localhost:5000/health
-```
+# Run all Jest tests
+npm run test:all
 
-Expected response:
-```json
-{
-  "success": true,
-  "message": "ProofOfWork API is running",
-  "timestamp": "2025-01-24T...",
-  "environment": "development",
-  "concordium": {
-    "network": "testnet",
-    "nodeUrl": "https://testnet.concordium.com"
-  }
-}
-```
+# Run comprehensive test suite
+npm run test:comprehensive
 
-## 📊 Manual API Testing
-
-### Test Profile Creation
-```bash
-# Create a business profile
-curl -X POST http://localhost:5000/api/v1/profiles \
-  -H "Content-Type: application/json" \
-  -d '{
-    "role": "business",
-    "display_name": "CleanPro Services",
-    "concordium_account": "concordium_business_123",
-    "concordium_did": true
-  }'
-```
-
-### Test Job Creation
-```bash
-# Create a job (replace BUSINESS_ID with actual ID from profile creation)
-curl -X POST http://localhost:5000/api/v1/jobs \
-  -H "Content-Type: application/json" \
-  -d '{
-    "business_id": "BUSINESS_ID_HERE",
-    "title": "Office Cleaning - Downtown",
-    "description": "Deep clean office space including floors, windows, and bathrooms",
-    "amount_plt": 25.0,
-    "location": {"latitude": 40.7589, "longitude": -73.9851},
-    "radius_m": 150
-  }'
-```
-
-### Test Job Completion
-```bash
-# Complete a job with location verification
-curl -X PATCH http://localhost:5000/api/v1/jobs/JOB_ID_HERE/complete \
-  -H "Content-Type: application/json" \
-  -d '{
-    "position": {"latitude": 40.7589, "longitude": -73.9851}
-  }'
-```
-
-## 🧪 Automated Testing
-
-### Run Our Test Suite
-```bash
-cd backend
-npm test
-```
-
-Our test suite covers:
-- Health check endpoints
-- Profile CRUD operations
-- Job management workflows
-- Location verification
-- Error handling
-- Rate limiting
-
-### Test Coverage
-```bash
-# Install test coverage tool
-npm install --save-dev jest-coverage
-
-# Run tests with coverage
+# Run with coverage
 npm test -- --coverage
 ```
 
-## 🔍 API Endpoint Testing
+### Manual Testing
 
-### Profiles Endpoints
 ```bash
-# Get all profiles
-curl http://localhost:5000/api/v1/profiles
+# Run manual API tests
+npm run test:manual
 
-# Get specific profile
-curl http://localhost:5000/api/v1/profiles/PROFILE_ID
-
-# Get profile balance
-curl http://localhost:5000/api/v1/profiles/PROFILE_ID/balance
-
-# Verify Concordium identity
-curl -X POST http://localhost:5000/api/v1/profiles/PROFILE_ID/verify-identity
+# Windows manual tests
+npm run test:manual:win
 ```
 
-### Jobs Endpoints
-```bash
-# Get all jobs
-curl http://localhost:5000/api/v1/jobs
+## Test Configuration
 
-# Get jobs by status
-curl "http://localhost:5000/api/v1/jobs?status=open"
+### Jest Configuration (`jest.config.js`)
 
-# Get jobs by business
-curl "http://localhost:5000/api/v1/jobs?business_id=BUSINESS_ID"
+- **Test Environment**: Node.js
+- **Timeout**: 30 seconds per test
+- **Coverage Threshold**: 80% for all metrics
+- **Coverage Reports**: Text, LCOV, HTML
+- **Setup Files**: Automatic test setup and cleanup
 
-# Get nearby jobs
-curl "http://localhost:5000/api/v1/jobs/nearby?latitude=40.7589&longitude=-73.9851&radius=5000"
+### Test Setup (`setup.js`)
 
-# Assign job to worker
-curl -X PATCH http://localhost:5000/api/v1/jobs/JOB_ID/assign \
-  -H "Content-Type: application/json" \
-  -d '{"worker_id": "WORKER_ID"}'
-```
+- Database connection verification
+- Test data cleanup
+- Global error handling
+- Environment validation
 
-## 🌐 Database Testing
+## Test Data Management
 
-### Test Supabase Connection
-```bash
-# Check if our seeding script works
-npm run seed
-```
+### Automatic Cleanup
 
-### Verify Database Records
-```bash
-# Test profile creation and retrieval
-curl -X POST http://localhost:5000/api/v1/profiles \
-  -H "Content-Type: application/json" \
-  -d '{"role": "worker", "display_name": "Test Worker", "concordium_account": "test_worker", "concordium_did": true}'
+Tests automatically clean up after themselves:
+- Remove test profiles with "Test" in display name
+- Remove test jobs with "Test" in title
+- Clean up escrow records
+- Reset test state between runs
 
-# Then retrieve it
-curl http://localhost:5000/api/v1/profiles
-```
+### Test Data Isolation
 
-## ⛓️ Concordium Integration Testing
+Each test category uses isolated test data:
+- Unique identifiers for test entities
+- Separate test accounts
+- Isolated Concordium transactions
+- Independent database records
 
-### Test Blockchain Connection
-```bash
-# Check Concordium network status
-curl http://localhost:5000/health | jq '.concordium'
-```
+## Performance Benchmarks
 
-### Test Identity Verification
-```bash
-# Create profile with Concordium account
-curl -X POST http://localhost:5000/api/v1/profiles \
-  -H "Content-Type: application/json" \
-  -d '{
-    "role": "business",
-    "display_name": "Blockchain Test Business",
-    "concordium_account": "concordium_test_account",
-    "concordium_did": false
-  }'
+### Response Time Targets
 
-# Verify the identity
-curl -X POST http://localhost:5000/api/v1/profiles/PROFILE_ID/verify-identity
-```
-
-## 🛡️ Security Testing
-
-### Test Rate Limiting
-```bash
-# Make multiple requests quickly
-for i in {1..10}; do
-  curl http://localhost:5000/health &
-done
-wait
-```
-
-### Test CORS
-```bash
-# Test from different origin
-curl -H "Origin: http://localhost:3000" \
-     -H "Access-Control-Request-Method: POST" \
-     -H "Access-Control-Request-Headers: X-Requested-With" \
-     -X OPTIONS \
-     http://localhost:5000/api/v1/profiles
-```
-
-## 📱 Frontend Integration Testing
-
-### Test API from Frontend
-```javascript
-// Test from browser console or frontend app
-fetch('http://localhost:5000/api/v1/profiles')
-  .then(response => response.json())
-  .then(data => console.log(data));
-
-// Test job creation
-fetch('http://localhost:5000/api/v1/jobs', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    business_id: 'your-business-id',
-    title: 'Test Job',
-    description: 'Test description',
-    amount_plt: 10.0,
-    location: { latitude: 40.7589, longitude: -73.9851 },
-    radius_m: 100
-  })
-})
-.then(response => response.json())
-.then(data => console.log(data));
-```
-
-## 🐛 Debugging Tips
-
-### Check Server Logs
-```bash
-# Run with debug logging
-DEBUG=* npm run dev
-```
-
-### Test Database Queries
-```bash
-# Check Supabase logs in dashboard
-# Verify environment variables
-echo $SUPABASE_URL
-echo $CONCORDIUM_NODE_URL
-```
-
-### Common Issues
-1. **Port already in use**: Kill process on port 5000
-2. **Supabase connection failed**: Check credentials in .env
-3. **Concordium connection failed**: Verify node URL
-4. **CORS errors**: Check CORS_ORIGIN setting
-
-## 📊 Performance Testing
+- **Health Endpoint**: < 100ms
+- **API Endpoints**: < 500ms
+- **Database Queries**: < 1000ms
+- **Concordium Operations**: < 2000ms
 
 ### Load Testing
+
+- **Concurrent Requests**: 50+ simultaneous requests
+- **Large Datasets**: 1000+ records
+- **Memory Usage**: < 50MB increase per 100 requests
+- **Rate Limiting**: 100 requests per 15 minutes
+
+## Security Testing
+
+### Input Validation
+
+- **SQL Injection**: Malicious queries rejected
+- **XSS Prevention**: Script tags sanitized
+- **Data Validation**: Invalid data rejected
+- **Size Limits**: Oversized payloads blocked
+
+### Authentication & Authorization
+
+- **Token Validation**: Invalid tokens rejected
+- **Rate Limiting**: Excessive requests blocked
+- **CORS Security**: Unauthorized origins restricted
+- **Error Disclosure**: Sensitive information protected
+
+## Coverage Requirements
+
+### Minimum Coverage Thresholds
+
+- **Branches**: 80%
+- **Functions**: 80%
+- **Lines**: 80%
+- **Statements**: 80%
+
+### Critical Path Coverage
+
+- All API endpoints
+- All Concordium service methods
+- All error handling paths
+- All validation logic
+- All security measures
+
+## Test Results Interpretation
+
+### Success Criteria
+
+- **Infrastructure**: All services connected
+- **API**: All endpoints functional
+- **Concordium**: All blockchain operations working
+- **Security**: All vulnerabilities protected
+- **Performance**: All benchmarks met
+- **Integration**: Complete workflows functional
+
+### Failure Analysis
+
+- **Critical Failures**: Block deployment
+- **Non-Critical Failures**: Require attention
+- **Performance Issues**: Optimization needed
+- **Security Vulnerabilities**: Immediate fix required
+
+## Continuous Integration
+
+### Pre-deployment Checks
+
 ```bash
-# Install artillery for load testing
-npm install -g artillery
+# Run full test suite
+npm run test:comprehensive
 
-# Create load test config
-cat > load-test.yml << EOF
-config:
-  target: 'http://localhost:5000'
-  phases:
-    - duration: 60
-      arrivalRate: 10
-scenarios:
-  - name: "API Load Test"
-    requests:
-      - get:
-          url: "/health"
-      - get:
-          url: "/api/v1/profiles"
-EOF
+# Check coverage
+npm test -- --coverage
 
-# Run load test
-artillery run load-test.yml
+# Run security tests
+npm run test:security
+
+# Run performance tests
+npm run test:performance
 ```
 
-## ✅ Testing Checklist
+### Production Readiness
 
-- [ ] Server starts without errors
-- [ ] Health check returns success
-- [ ] Profile creation works
-- [ ] Job creation works
-- [ ] Location verification works
-- [ ] Database operations succeed
-- [ ] Concordium integration works
-- [ ] Rate limiting functions
-- [ ] CORS is configured
-- [ ] Error handling works
-- [ ] API responses are properly formatted
+A system is ready for production when:
+- All critical tests pass
+- Coverage thresholds met
+- Security tests pass
+- Performance benchmarks met
+- Integration tests successful
 
-## 🎯 Next Steps
+## Troubleshooting
 
-After testing:
-1. Deploy to production environment
-2. Set up monitoring and logging
-3. Configure CI/CD pipeline
-4. Set up automated testing in deployment
-5. Monitor API performance and usage
+### Common Issues
+
+1. **Database Connection Failures**
+   - Check Supabase credentials
+   - Verify network connectivity
+   - Ensure database is accessible
+
+2. **Concordium Connection Issues**
+   - Verify testnet connectivity
+   - Check account credentials
+   - Ensure Web SDK is properly configured
+
+3. **Test Timeouts**
+   - Increase timeout values
+   - Check for hanging connections
+   - Verify cleanup procedures
+
+4. **Memory Leaks**
+   - Check for unclosed connections
+   - Verify proper cleanup
+   - Monitor memory usage patterns
+
+### Debug Mode
+
+```bash
+# Run tests with debug output
+DEBUG=* npm run test:comprehensive
+
+# Run specific test with verbose output
+npm run test:infrastructure -- --verbose
+```
+
+## Best Practices
+
+### Writing Tests
+
+1. **Test Isolation**: Each test should be independent
+2. **Data Cleanup**: Always clean up test data
+3. **Error Scenarios**: Test both success and failure cases
+4. **Edge Cases**: Test boundary conditions
+5. **Performance**: Monitor test execution time
+
+### Maintaining Tests
+
+1. **Regular Updates**: Keep tests current with code changes
+2. **Coverage Monitoring**: Maintain coverage thresholds
+3. **Performance Tracking**: Monitor test performance
+4. **Security Updates**: Update security test cases
+5. **Documentation**: Keep test documentation current
+
+## Production Deployment
+
+### Pre-deployment Checklist
+
+- [ ] All tests pass
+- [ ] Coverage thresholds met
+- [ ] Security tests pass
+- [ ] Performance benchmarks met
+- [ ] Integration tests successful
+- [ ] Manual testing completed
+- [ ] Documentation updated
+
+### Post-deployment Monitoring
+
+- Monitor API response times
+- Track error rates
+- Monitor Concordium transaction success
+- Check database performance
+- Monitor security metrics
+
+This testing suite ensures the ProofOfWork backend is production-ready with comprehensive coverage of all functionality, security measures, and performance requirements.

@@ -6,27 +6,42 @@ const concordiumService = require('../services/concordiumService');
 // Get all jobs
 router.get('/', async (req, res) => {
   try {
-    const { status, business_id, worker_id } = req.query;
+    const { status, business_id, worker_id, limit = 50, offset = 0 } = req.query;
+    
+    // Build optimized query
     let query = supabaseAdmin
       .from('jobs')
       .select(`
-        *,
+        id,
+        title,
+        description,
+        amount_plt,
+        status,
+        created_at,
         businesses!jobs_business_id_fkey(company_name),
         workers!jobs_worker_id_fkey(*),
-        escrows(*)
-      `);
+        escrows(status, tx_hash)
+      `)
+      .range(parseInt(offset), parseInt(offset) + parseInt(limit) - 1)
+      .order('created_at', { ascending: false });
 
+    // Apply filters
     if (status) query = query.eq('status', status);
     if (business_id) query = query.eq('business_id', business_id);
     if (worker_id) query = query.eq('worker_id', worker_id);
 
-    const { data, error } = await query.order('created_at', { ascending: false });
+    const { data, error } = await query;
 
     if (error) throw error;
 
     res.json({
       success: true,
-      data: data || []
+      data: data || [],
+      pagination: {
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        total: data?.length || 0
+      }
     });
   } catch (error) {
     res.status(500).json({
@@ -141,7 +156,11 @@ router.patch('/:id/assign', async (req, res) => {
 
     const { data: job, error: jobError } = await supabaseAdmin
       .from('jobs')
-      .select('status')
+      .select(`
+        *,
+        businesses!jobs_business_id_fkey(*),
+        workers!jobs_worker_id_fkey(*)
+      `)
       .eq('id', req.params.id)
       .single();
 
@@ -162,7 +181,7 @@ router.patch('/:id/assign', async (req, res) => {
     // Verify worker exists
     const { data: worker, error: workerError } = await supabaseAdmin
       .from('workers')
-      .select('id')
+      .select('id, concordium_account')
       .eq('id', worker_id)
       .single();
 
@@ -171,6 +190,41 @@ router.patch('/:id/assign', async (req, res) => {
         success: false,
         message: 'Invalid worker ID'
       });
+    }
+
+    // Create real PLT escrow transaction
+    let escrowResult = null;
+    if (job.businesses && job.businesses.concordium_account && worker.concordium_account) {
+      try {
+        escrowResult = await concordiumService.createEscrowPayment(
+          job.businesses.concordium_account, // Business account
+          job.amount_plt, // Amount in PLT
+          job.id, // Job ID
+          worker.concordium_account, // Worker account
+          { // Location
+            latitude: job.location.latitude,
+            longitude: job.location.longitude,
+            radius: job.radius_m
+          }
+        );
+
+        // Update escrow record with real transaction
+        await supabaseAdmin
+          .from('escrows')
+          .update({
+            status: 'created',
+            tx_hash: escrowResult.hash,
+            simulated: escrowResult.simulated || false,
+            real_transaction: escrowResult.realTransaction || false,
+            hybrid_mode: escrowResult.hybridMode || false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('job_id', job.id);
+
+      } catch (escrowError) {
+        console.error('Escrow creation failed:', escrowError);
+        // Continue with assignment even if escrow fails
+      }
     }
 
     const { data, error } = await supabaseAdmin
@@ -188,7 +242,12 @@ router.patch('/:id/assign', async (req, res) => {
 
     res.json({
       success: true,
-      data: data
+      data: {
+        job: data,
+        escrow: escrowResult,
+        realTransaction: escrowResult ? escrowResult.realTransaction : false,
+        hybridMode: escrowResult ? escrowResult.hybridMode : false
+      }
     });
   } catch (error) {
     res.status(500).json({
@@ -283,7 +342,8 @@ router.patch('/:id/complete', async (req, res) => {
         const paymentResult = await concordiumService.releasePayment(
           job.workers.concordium_account,
           job.amount_plt,
-          job.id
+          job.id,
+          position // Worker location for verification
         );
 
         // Update escrow status
@@ -292,7 +352,9 @@ router.patch('/:id/complete', async (req, res) => {
           .update({
             status: 'released',
             tx_hash: paymentResult.hash,
-            simulated: paymentResult.simulated,
+            simulated: paymentResult.simulated || false,
+            real_transaction: paymentResult.realTransaction || false,
+            hybrid_mode: paymentResult.hybridMode || false,
             updated_at: new Date().toISOString()
           })
           .eq('job_id', job.id);
@@ -305,6 +367,21 @@ router.patch('/:id/complete', async (req, res) => {
             updated_at: new Date().toISOString()
           })
           .eq('id', job.id);
+
+        // Add payment result to response
+        res.json({
+          success: true,
+          data: {
+            job: updatedJob,
+            locationCheck,
+            isWithinRadius,
+            distance,
+            payment: paymentResult,
+            realTransaction: paymentResult.realTransaction || false,
+            hybridMode: paymentResult.hybridMode || false
+          }
+        });
+        return;
 
       } catch (paymentError) {
         console.error('Payment release failed:', paymentError);

@@ -76,12 +76,10 @@ export default function Navbar() {
   return (
     <nav className="fixed w-full bg-white/90 backdrop-blur-md z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
+        <Link href="/" className="flex items-center gap-2">
           <Shield className="w-8 h-8 text-blue-600" />
           <span className="text-2xl font-bold text-gray-900">ProofOfWork</span>
         </Link>
-
-        {/* Desktop links */}
         <div className="hidden md:flex items-center gap-8">
           <Link
             href="/home/features"

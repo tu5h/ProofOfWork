@@ -1,57 +1,60 @@
 const { ConcordiumGRPCClient, ConcordiumHdWallet } = require('@concordium/web-sdk');
+const LocalConcordiumService = require('./localConcordiumService');
 const axios = require('axios');
 
 class ConcordiumService {
   constructor() {
-    this.nodeUrl = process.env.CONCORDIUM_NODE_URL || 'https://testnet.concordium.com';
+    this.nodeUrl = process.env.CONCORDIUM_NODE_URL || 'http://localhost:20100';
     this.isTestnet = this.nodeUrl.includes('testnet');
+    this.isLocal = this.nodeUrl.includes('localhost');
     this.client = null;
+    this.localService = new LocalConcordiumService();
+    this.useLocalStack = process.env.USE_LOCAL_STACK === 'true' || this.isLocal;
+    this.cache = new Map(); // Simple in-memory cache
+    this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
     this.initializeClient();
   }
 
   async initializeClient() {
     try {
       this.client = new ConcordiumGRPCClient(this.nodeUrl, 10000);
-      console.log('✅ Connected to Concordium node:', this.nodeUrl);
+      console.log('Connected to Concordium node:', this.nodeUrl);
     } catch (error) {
-      console.error('❌ Failed to connect to Concordium node:', error.message);
+      console.error('Failed to connect to Concordium node:', error.message);
     }
   }
 
-  // Verify Concordium Identity (Real testnet integration)
+  // Cache management methods
+  getFromCache(key) {
+    const cached = this.cache.get(key);
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      return cached.data;
+    }
+    this.cache.delete(key);
+    return null;
+  }
+
+  setCache(key, data) {
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now()
+    });
+  }
+
+  // Verify Concordium Identity (Local stack integration)
   async verifyIdentity(concordiumAccount) {
     try {
-      if (!this.client) {
-        throw new Error('Concordium client not initialized');
+      // Check cache first
+      const cacheKey = `identity_${concordiumAccount}`;
+      const cached = this.getFromCache(cacheKey);
+      if (cached) {
+        return cached;
       }
 
-      // Validate account format (Concordium accounts are base58 encoded)
-      if (!concordiumAccount || typeof concordiumAccount !== 'string') {
-        return { verified: false, error: 'Invalid account format' };
-      }
-
-      // For real integration, we would call:
-      // const accountInfo = await this.client.getAccountInfo(concordiumAccount);
-      
-      // For now, let's simulate but with real account format validation
-      const isValidFormat = concordiumAccount.length >= 48 && concordiumAccount.length <= 50;
-      
-      if (!isValidFormat) {
-        return { verified: false, error: 'Invalid Concordium account format' };
-      }
-
-      // Simulate successful verification for real testnet
-      return {
-        verified: true,
-        accountInfo: {
-          address: concordiumAccount,
-          network: 'testnet',
-          hasIdentity: true,
-          balance: '20000.0 CCD', // Your actual testnet balance
-          verified: true,
-          realAccount: true // Flag to indicate this is a real account
-        }
-      };
+      // Use local service for all operations
+      const result = await this.localService.verifyIdentity(concordiumAccount);
+      this.setCache(cacheKey, result);
+      return result;
       
     } catch (error) {
       console.error('Concordium identity verification failed:', error.message);
@@ -62,150 +65,48 @@ class ConcordiumService {
   // Get account balance
   async getBalance(concordiumAccount) {
     try {
-      if (!this.client) {
-        throw new Error('Concordium client not initialized');
-      }
-
-      const accountInfo = await this.client.getAccountInfo(concordiumAccount);
-      return accountInfo ? accountInfo.accountAmount : 0;
+      // Use local service for all operations
+      return await this.localService.getBalance(concordiumAccount);
+      
     } catch (error) {
       console.error('Failed to get balance:', error.message);
       return 0;
     }
   }
 
-  // Create escrow payment (Real testnet integration)
-  async createEscrowPayment(fromAccount, amount, jobId) {
+  // Create escrow payment (Local stack integration)
+  async createEscrowPayment(fromAccount, amount, jobId, workerAddress, location) {
     try {
-      if (!this.client) {
-        throw new Error('Concordium client not initialized');
-      }
-
-      // Validate account format
-      const isValidFormat = fromAccount && fromAccount.length > 10;
-      if (!isValidFormat) {
-        throw new Error('Invalid Concordium account format');
-      }
-
-      // For demo purposes, simulate PLT escrow creation
-      // In production, this would interact with a real PLT smart contract
-      const transactionData = {
-        from: fromAccount,
-        to: 'PLT_ESCROW_CONTRACT', // Placeholder for real PLT escrow contract
-        amount: amount,
-        token: 'PLT',
-        jobId: jobId,
-        timestamp: new Date().toISOString(),
-        type: 'escrow_create',
-        network: 'testnet'
-      };
-
-      // Generate a realistic transaction hash
-      const transactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+      // Use local service for all operations
+      return await this.localService.createEscrowPayment(fromAccount, amount, jobId, workerAddress, location);
       
-      console.log('🔒 PLT Escrow created:', {
-        hash: transactionHash,
-        amount: `${amount} PLT`,
-        jobId: jobId,
-        from: fromAccount
-      });
-      
-      return {
-        hash: transactionHash,
-        status: 'confirmed',
-        data: transactionData,
-        simulated: false, // Real testnet integration
-        network: 'testnet',
-        token: 'PLT'
-      };
     } catch (error) {
-      console.error('PLT Escrow creation failed:', error);
-      throw new Error('Failed to create PLT escrow payment');
+      console.error('Failed to create escrow payment:', error.message);
+      throw new Error(`Failed to create escrow payment: ${error.message}`);
     }
   }
 
-  // Release payment from escrow (Real testnet integration)
-  async releasePayment(toAccount, amount, jobId) {
+  // Release payment from escrow (Local stack integration)
+  async releasePayment(toAccount, amount, jobId, workerLocation) {
     try {
-      if (!this.client) {
-        throw new Error('Concordium client not initialized');
-      }
-
-      // Validate account format
-      const isValidFormat = toAccount && toAccount.length > 10;
-      if (!isValidFormat) {
-        throw new Error('Invalid Concordium account format');
-      }
-
-      // Simulate PLT payment release
-      const transactionData = {
-        from: 'PLT_ESCROW_CONTRACT',
-        to: toAccount,
-        amount: amount,
-        token: 'PLT',
-        jobId: jobId,
-        timestamp: new Date().toISOString(),
-        type: 'escrow_release',
-        network: 'testnet'
-      };
-
-      // Generate a realistic transaction hash
-      const transactionHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+      // Use local service for all operations
+      return await this.localService.releasePayment(toAccount, amount, jobId, workerLocation);
       
-      console.log('💰 PLT Payment released:', {
-        hash: transactionHash,
-        amount: `${amount} PLT`,
-        to: toAccount,
-        jobId: jobId
-      });
-      
-      return {
-        hash: transactionHash,
-        status: 'confirmed',
-        data: transactionData,
-        simulated: false, // Real testnet integration
-        network: 'testnet',
-        token: 'PLT'
-      };
     } catch (error) {
-      console.error('PLT Payment release failed:', error);
-      throw new Error('Failed to release PLT payment');
+      console.error('Failed to release payment:', error.message);
+      throw new Error(`Failed to release payment: ${error.message}`);
     }
   }
 
   // Verify location and create proof
   async verifyLocation(latitude, longitude, targetLatitude, targetLongitude, radius) {
     try {
-      const distance = this.calculateDistance(latitude, longitude, targetLatitude, targetLongitude);
-      const isWithinRadius = distance <= radius;
+      // Use local service for all operations
+      return await this.localService.verifyLocation(latitude, longitude, targetLatitude, targetLongitude, radius);
 
-      const proofData = {
-        latitude,
-        longitude,
-        targetLatitude,
-        targetLongitude,
-        radius,
-        distance,
-        isWithinRadius,
-        timestamp: new Date().toISOString(),
-        accuracy: 5 // Simulated GPS accuracy
-      };
-
-      // Create blockchain proof (simulated)
-      const proofHash = `location_proof_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      console.log('Location verification proof created:', proofHash);
-      
-      return {
-        hash: proofHash,
-        verified: isWithinRadius,
-        distance: distance,
-        proof: proofData,
-        simulated: true
-      };
     } catch (error) {
-      console.error('Location verification failed:', error);
-      throw new Error('Failed to verify location');
+      console.error('Location verification failed:', error.message);
+      return { verified: false, error: error.message };
     }
   }
 

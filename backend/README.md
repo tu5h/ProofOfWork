@@ -1,291 +1,163 @@
-# ProofOfWork Backend API
+# ProofOfWork Backend
 
-Our Node.js/Express backend API for the ProofOfWork location-verified payment platform, built for the Concordium hackathon. We've integrated Supabase for database operations and Concordium blockchain for identity verification and payments.
-
-## 🏗️ Architecture
-
-### Technology Stack
-- **Runtime**: Node.js 18+
-- **Framework**: Express.js
-- **Database**: Supabase (PostgreSQL)
-- **Blockchain**: Concordium SDK
-- **Authentication**: JWT tokens
-- **Security**: Helmet, CORS, Rate Limiting
-
-### Database Schema (Supabase)
-Our backend works with the following Supabase tables:
-- `profiles` - User profiles with Concordium accounts
-- `businesses` - Business entities
-- `workers` - Worker entities  
-- `jobs` - Location-based jobs
-- `escrows` - Payment escrow records
-- `location_checks` - Location verification records
+A location-verified payment platform built for the Concordium hackathon. This backend provides a robust API for managing location-based jobs with automatic payment release using Concordium blockchain technology.
 
 ## 🚀 Features
 
-### Core Functionality
-- **User Management**: Profile creation and Concordium identity verification
-- **Job Management**: Create, assign, and complete location-based jobs
-- **Location Verification**: GPS-based verification with radius checking
-- **Payment System**: PLT token escrow and release mechanism
-- **Blockchain Integration**: Real Concordium SDK integration
+- **Real Concordium Integration**: Uses Concordium local stack for instant transactions
+- **Location Verification**: GPS-based verification with blockchain proof
+- **Smart Contract Integration**: PLT token escrow system
+- **Comprehensive Testing**: Full test suite with Jest
+- **Production Ready**: Optimized for performance and security
 
-### API Endpoints
+## 🏗️ Architecture
 
-#### Profiles
-- `GET /api/v1/profiles` - Get all profiles
-- `GET /api/v1/profiles/:id` - Get profile by ID
-- `POST /api/v1/profiles` - Create new profile
-- `GET /api/v1/profiles/:id/balance` - Get Concordium balance
-- `POST /api/v1/profiles/:id/verify-identity` - Verify Concordium identity
+- **Backend**: Node.js with Express
+- **Database**: Supabase (PostgreSQL)
+- **Blockchain**: Concordium local stack
+- **Smart Contracts**: Rust-based PLT escrow system
+- **Testing**: Jest with comprehensive test coverage
 
-#### Jobs
-- `GET /api/v1/jobs` - Get all jobs (with filters)
-- `GET /api/v1/jobs/:id` - Get job by ID
-- `POST /api/v1/jobs` - Create new job
-- `PATCH /api/v1/jobs/:id/assign` - Assign job to worker
-- `PATCH /api/v1/jobs/:id/complete` - Complete job with location verification
-- `GET /api/v1/jobs/nearby` - Get jobs near location
+## 📋 Prerequisites
 
-#### Health
-- `GET /health` - API health check with Concordium status
-
-## 🔧 Installation & Setup
-
-### Prerequisites
 - Node.js 18+
-- Supabase project with database schema
-- Concordium testnet access
+- Docker Desktop (for Concordium local stack)
+- Supabase account
 
-### 1. Install Dependencies
-```bash
-cd backend
-npm install
-```
+## 🛠️ Installation
 
-### 2. Environment Configuration
-Copy our environment template:
-```bash
-cp env.example .env
-```
+1. **Clone and install dependencies:**
+   ```bash
+   cd backend
+   npm install
+   ```
 
-Configure the `.env` file with your credentials:
-```env
-# Supabase Configuration
-SUPABASE_URL=your-supabase-project-url
-SUPABASE_ANON_KEY=your-supabase-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+2. **Set up Concordium local stack:**
+   ```bash
+   npm run setup:local
+   ```
 
-# Concordium Configuration
-CONCORDIUM_NODE_URL=https://testnet.concordium.com
+3. **Configure environment:**
+   ```bash
+   cp env.local.example .env
+   # Update .env with your Supabase and Concordium details
+   ```
 
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key
+4. **Seed the database:**
+   ```bash
+   npm run seed
+   ```
 
-# API Configuration
-PORT=5000
-CORS_ORIGIN=http://localhost:3000
-```
-
-### 3. Database Setup
-Make sure your Supabase project includes our required tables:
-- `profiles`
-- `businesses` 
-- `workers`
-- `jobs`
-- `escrows`
-- `location_checks`
-
-### 4. Seed Demo Data (Optional)
-```bash
-npm run seed
-```
-
-### 5. Start Development Server
-```bash
-npm run dev
-```
-
-Our API will be available at `http://localhost:5000`
-
-## 📊 API Usage Examples
-
-### Create a Profile
-```bash
-curl -X POST http://localhost:5000/api/v1/profiles \
-  -H "Content-Type: application/json" \
-  -d '{
-    "role": "business",
-    "display_name": "CleanPro Services",
-    "concordium_account": "concordium_business_123",
-    "concordium_did": true
-  }'
-```
-
-### Create a Job
-```bash
-curl -X POST http://localhost:5000/api/v1/jobs \
-  -H "Content-Type: application/json" \
-  -d '{
-    "business_id": "business-uuid",
-    "title": "Office Cleaning",
-    "description": "Deep clean office space",
-    "amount_plt": 25.0,
-    "location": {"latitude": 40.7589, "longitude": -73.9851},
-    "radius_m": 150
-  }'
-```
-
-### Complete Job with Location Verification
-```bash
-curl -X PATCH http://localhost:5000/api/v1/jobs/job-uuid/complete \
-  -H "Content-Type: application/json" \
-  -d '{
-    "position": {"latitude": 40.7589, "longitude": -73.9851}
-  }'
-```
-
-## 🔐 Security Features
-
-We've implemented several security measures:
-- **Rate Limiting**: 100 requests per 15 minutes per IP
-- **CORS Protection**: Configurable origin restrictions
-- **Helmet Security**: Security headers
-- **Input Validation**: Joi schema validation
-- **Concordium Verification**: Real blockchain identity verification
-
-## 🌐 Concordium Integration
-
-### Real Blockchain Features
-- **Identity Verification**: Verify Concordium accounts and DIDs
-- **Balance Checking**: Get real account balances
-- **Transaction Simulation**: Simulate escrow and payment transactions
-- **Network Status**: Monitor Concordium node connectivity
-
-### Concordium Service Methods
-```javascript
-// Verify Concordium identity
-const verification = await concordiumService.verifyIdentity(accountAddress);
-
-// Get account balance
-const balance = await concordiumService.getBalance(accountAddress);
-
-// Create escrow payment
-const escrow = await concordiumService.createEscrowPayment(fromAccount, amount, jobId);
-
-// Release payment
-const payment = await concordiumService.releasePayment(toAccount, amount, jobId);
-
-// Verify location
-const locationProof = await concordiumService.verifyLocation(lat, lon, targetLat, targetLon, radius);
-```
-
-## 🚀 Deployment
-
-### Environment Variables for Production
-```env
-NODE_ENV=production
-PORT=5000
-SUPABASE_URL=your-production-supabase-url
-SUPABASE_ANON_KEY=your-production-anon-key
-SUPABASE_SERVICE_ROLE_KEY=your-production-service-key
-CONCORDIUM_NODE_URL=https://mainnet.concordium.com
-JWT_SECRET=your-production-jwt-secret
-CORS_ORIGIN=https://your-frontend-domain.com
-```
-
-### Deploy to Vercel
-1. Install Vercel CLI: `npm i -g vercel`
-2. Deploy: `vercel`
-3. Set environment variables in Vercel dashboard
-
-### Deploy to Railway/Render
-1. Connect your GitHub repository
-2. Set environment variables
-3. Deploy automatically on push
+5. **Start the server:**
+   ```bash
+   npm run dev
+   ```
 
 ## 🧪 Testing
 
-### Health Check
+Run the comprehensive test suite:
+
 ```bash
-curl http://localhost:5000/health
+# Run all tests
+npm test
+
+# Run specific test categories
+npm run test:infrastructure
+npm run test:profiles
+npm run test:jobs
+npm run test:concordium
+npm run test:security
+npm run test:performance
+npm run test:unit
 ```
 
-### API Status
-```bash
-curl http://localhost:5000/
+## 📚 API Documentation
+
+### Core Endpoints
+
+- `GET /health` - Health check
+- `GET /api/v1/profiles` - List profiles
+- `POST /api/v1/profiles` - Create profile
+- `GET /api/v1/jobs` - List jobs
+- `POST /api/v1/jobs` - Create job
+- `PATCH /api/v1/jobs/:id/assign` - Assign job to worker
+- `PATCH /api/v1/jobs/:id/complete` - Complete job
+
+### Concordium Integration
+
+- **Account Verification**: Real-time account validation
+- **Balance Checking**: Live balance queries
+- **Escrow Creation**: PLT token escrow transactions
+- **Payment Release**: Location-verified payment release
+- **Location Verification**: GPS-based blockchain proof
+
+## 🔧 Configuration
+
+### Environment Variables
+
+```env
+# Concordium Local Stack
+CONCORDIUM_NODE_URL=http://localhost:20100
+USE_LOCAL_STACK=true
+
+# Your Concordium Account
+CONCORDIUM_ACCOUNT_ADDRESS=your_account_address
+CONCORDIUM_PRIVATE_KEY=your_private_key
+
+# PLT Token
+PLT_TOKEN_ADDRESS=your_plt_token_address
+ESCROW_CONTRACT_ADDRESS=LOCAL_ESCROW_CONTRACT
+
+# Supabase
+SUPABASE_URL=your_supabase_url
+SUPABASE_ANON_KEY=your_supabase_key
+
+# Server
+PORT=5000
+NODE_ENV=development
 ```
 
-## 📝 Database Schema Reference
+## 🏆 Hackathon Ready
 
-Here's our Supabase schema structure:
+This backend is optimized for hackathon demonstration:
 
-### Profiles Table
-```sql
-CREATE TABLE profiles (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  role user_role,
-  display_name varchar,
-  concordium_account varchar,
-  concordium_did boolean,
-  created_at timestamptz DEFAULT now()
-);
+- ✅ **Real blockchain integration** (Concordium local stack)
+- ✅ **Instant transactions** (no waiting for confirmations)
+- ✅ **Your own PLT token** (full control)
+- ✅ **Comprehensive testing** (production-level quality)
+- ✅ **Professional architecture** (scalable and maintainable)
+
+## 📁 Project Structure
+
+```
+backend/
+├── src/
+│   ├── config/          # Configuration files
+│   ├── middleware/      # Express middleware
+│   ├── routes/          # API routes
+│   ├── scripts/         # Utility scripts
+│   ├── services/       # Business logic
+│   ├── tests/          # Test suite
+│   └── server.js       # Main server file
+├── contracts/          # Smart contracts
+├── docs/              # Documentation
+└── package.json       # Dependencies and scripts
 ```
 
-### Jobs Table
-```sql
-CREATE TABLE jobs (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  business_id uuid REFERENCES businesses(id),
-  worker_id uuid REFERENCES workers(id),
-  title text,
-  description text,
-  amount_plt numeric,
-  location point,
-  radius_m bigint,
-  status job_status DEFAULT 'open',
-  created_at timestamptz,
-  updated_at timestamptz
-);
-```
+## 🚀 Getting Started
 
-### Escrows Table
-```sql
-CREATE TABLE escrows (
-  job_id uuid PRIMARY KEY REFERENCES jobs(id),
-  status escrow_status DEFAULT 'none',
-  tx_hash text,
-  simulated boolean,
-  updated_at timestamptz DEFAULT now()
-);
-```
+1. **Start Concordium local stack** (Docker)
+2. **Configure your environment** (.env file)
+3. **Run the backend** (`npm run dev`)
+4. **Test the integration** (`npm test`)
+5. **Create your first job** (API calls)
 
-## 🆘 Troubleshooting
+## 📖 Additional Documentation
 
-### Common Issues
-
-**Supabase Connection Error**
-- Verify `SUPABASE_URL` and `SUPABASE_ANON_KEY` are correct
-- Check Supabase project status
-
-**Concordium Connection Error**
-- Verify `CONCORDIUM_NODE_URL` is accessible
-- Check Concordium testnet status
-
-**Port Already in Use**
-```bash
-# Kill process on port 5000
-lsof -ti:5000 | xargs kill -9
-```
-
-**Environment Variables Not Loading**
-- Ensure `.env` file is in the `backend` directory
-- Restart the development server
-
-## 📄 License
-
-MIT License - Built for Concordium Hackathon
+- [Concordium Local Stack Setup](CONCORDIUM_LOCAL_STACK_SETUP.md)
+- [Testing Guide](TESTING.md)
+- [Backend Architecture](backend_README.md)
 
 ---
 
-**Built with ❤️ for the Concordium Hackathon**
+**🎉 Ready to win the hackathon!** This backend provides everything you need for a professional blockchain-based location verification platform.

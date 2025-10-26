@@ -81,9 +81,14 @@ router.post('/', async (req, res) => {
       }
     }
 
+    // Generate a UUID for the profile (simulating auth user ID)
+    const { v4: uuidv4 } = require('uuid');
+    const profileId = uuidv4();
+
     const { data, error } = await supabaseAdmin
       .from('profiles')
       .insert({
+        id: profileId,
         role,
         display_name,
         concordium_account,
