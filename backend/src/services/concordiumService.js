@@ -99,10 +99,10 @@ class ConcordiumService {
   }
 
   // Release payment from escrow (Real blockchain integration)
-  async releasePayment(toAccount, amount, jobId, workerLocation) {
+  async releasePayment(senderAccount, toAccount, amount, jobId, workerLocation) {
     try {
       // Use local service with real transaction simulation
-      return await this.localService.releasePayment(toAccount, amount, jobId, workerLocation);
+      return await this.localService.releasePayment(senderAccount, toAccount, amount, jobId, workerLocation);
       
     } catch (error) {
       console.error('Failed to release payment:', error.message);
