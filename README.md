@@ -1,3 +1,5 @@
+Encode Hub Hackathon-https://luma.com/Encode-London-25?tk=9rVRDX
+
 # ProofOfWork
 
 A location-verified payment platform built for the Concordium hackathon.
