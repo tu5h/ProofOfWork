@@ -8,6 +8,9 @@ require('dotenv').config();
 const profileRoutes = require('./routes/profiles');
 const jobRoutes = require('./routes/jobs');
 
+// Import middleware
+const { errorHandler } = require('./middleware/errorHandler');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -92,23 +95,17 @@ app.use('*', (req, res) => {
 });
 
 // Error handling middleware
-app.use((error, req, res, next) => {
-  console.error('API Error:', error);
-  
-  res.status(error.status || 500).json({
-    success: false,
-    message: error.message || 'Internal server error',
-    ...(process.env.NODE_ENV === 'development' && { stack: error.stack })
-  });
-});
+app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 ProofOfWork API server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 API Base URL: http://localhost:${PORT}/api/v1`);
-  console.log(`🗄️  Database: Supabase`);
-  console.log(`⛓️  Blockchain: Concordium ${process.env.CONCORDIUM_NODE_URL}`);
-});
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(PORT, () => {
+    console.log(`🚀 ProofOfWork API server running on port ${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 API Base URL: http://localhost:${PORT}/api/v1`);
+    console.log(`🗄️  Database: Supabase`);
+    console.log(`⛓️  Blockchain: Concordium ${process.env.CONCORDIUM_NODE_URL}`);
+  });
+}
 
 module.exports = app;
