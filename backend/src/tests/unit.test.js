@@ -86,7 +86,7 @@ describe('Concordium Service Unit Tests', () => {
       const networkInfo = await concordiumService.getNetworkInfo();
       
       expect(networkInfo).toBeDefined();
-      expect(networkInfo.network).toBe('testnet');
+      expect(networkInfo.network).toBe('local');
       expect(networkInfo.nodeUrl).toBeDefined();
     });
   });

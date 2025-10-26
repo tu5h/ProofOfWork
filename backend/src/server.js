@@ -82,7 +82,7 @@ app.get('/', (req, res) => {
       jobs: '/api/v1/jobs'
     },
     database: 'Supabase',
-    blockchain: 'Concordium'
+    blockchain: process.env.CONCORDIUM_NODE_URL?.includes('localhost') ? 'Concordium P9 Localnet' : 'Concordium'
   });
 });
 
