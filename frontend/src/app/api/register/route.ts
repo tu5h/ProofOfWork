@@ -25,7 +25,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const supabase = await createServerClient()
+    const supabase = createServerClient();
 
     // Register user with Supabase Auth
     const { data, error } = await supabase.auth.signUp({

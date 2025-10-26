@@ -151,26 +151,44 @@ export default function BusinessDashboardPage() {
         
         const { data: workerRows, error: workersError } = await supabase
           .from("workers")
-          .select(`
-            id,
-            profiles(
-              display_name
-            )
-          `);
-        
-        console.log('Workers with profiles:', workerRows);
+          .select("id");
         
         if (workersError) {
           console.error('Workers error:', workersError);
         }
 
-        // Map workers to WorkerLite format
-        const ws: WorkerLite[] = (workerRows || []).map((w) => ({
-          id: w.id,
-          display_name: w.profiles?.[0]?.display_name || null,
-        }));
-        console.log('Workers loaded:', ws);
-        setWorkers(ws);
+        console.log('Worker IDs:', workerRows);
+
+        // Now get the display names from profiles using the worker IDs
+        if (workerRows && workerRows.length > 0) {
+          const workerIds = workerRows.map(w => w.id);
+          
+          const { data: profileRows, error: profileError } = await supabase
+            .from("profiles")
+            .select("id, display_name")
+            .in("id", workerIds);
+
+          if (profileError) {
+            console.error('Profile error:', profileError);
+          }
+
+          console.log('Profile rows:', profileRows);
+
+          // Map workers with their names
+          const ws: WorkerLite[] = workerRows.map((w: any) => {
+            const profile = profileRows?.find(p => p.id === w.id);
+            return {
+              id: w.id,
+              display_name: profile?.display_name || null,
+            };
+          });
+          
+          console.log('Final mapped workers:', ws);
+          setWorkers(ws);
+        } else {
+          setWorkers([]);
+        }
+
 
         // 5) Jobs for this business (plus escrow via related row)
         //    Use currentUserId directly as business_id since create job page uses auth.user.id

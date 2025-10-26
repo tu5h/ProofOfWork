@@ -42,32 +42,32 @@ function toLatLng(loc: any): { lat?: number; lng?: number } {
       // Extract the coordinate bytes from the WKB
       // WKB format: 0101000020E6100000 + 16 bytes for coordinates (8 bytes each for lng, lat)
       const coordBytes = loc.slice(18); // Remove the header
-      
+
       // Convert hex to bytes and parse as double precision floats
       const lngHex = coordBytes.slice(0, 16);
       const latHex = coordBytes.slice(16, 32);
-      
+
       // Convert from little-endian hex to double (browser-compatible)
       const lngBytes = new Uint8Array(8);
       const latBytes = new Uint8Array(8);
-      
+
       for (let i = 0; i < 8; i++) {
         lngBytes[i] = parseInt(lngHex.slice(i * 2, i * 2 + 2), 16);
         latBytes[i] = parseInt(latHex.slice(i * 2, i * 2 + 2), 16);
       }
-      
+
       const lngView = new DataView(lngBytes.buffer);
       const latView = new DataView(latBytes.buffer);
-      
+
       const lng = lngView.getFloat64(0, true); // little-endian
       const lat = latView.getFloat64(0, true); // little-endian
-      
+
       return { lat, lng };
     } catch (err) {
       console.error('Error parsing WKB location:', err);
     }
   }
-  
+
   // Handles PostGIS GeoJSON: { type: 'Point', coordinates: [lng, lat] }
   if (loc && typeof loc === "object") {
     if (Array.isArray(loc.coordinates) && loc.coordinates.length >= 2) {
@@ -163,6 +163,24 @@ export default function WorkerDashboardPage() {
     };
   }, [router]);
 
+  const reloadJobs = async () => {
+    try {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid) return;
+
+      const { data: js } = await supabase
+        .from("jobs")
+        .select("id, title, description, amount_plt, location, radius_m, status, updated_at")
+        .eq("worker_id", uid)
+        .order("updated_at", { ascending: false });
+
+      setJobs((js as JobRow[]) || []);
+    } catch (error) {
+      console.error("Error reloading jobs:", error);
+    }
+  };
+
   // Notification tray hover handlers (unchanged)
   const handleNotificationMouseEnter = () => {
     if (notificationTimer) {
@@ -180,34 +198,92 @@ export default function WorkerDashboardPage() {
   // “Mark job as finished” (placeholder: geolocate + call RPC)
   const markFinished = async (jobId: UUID) => {
     try {
-      if (!("geolocation" in navigator)) return alert("Geolocation not available on this device.");
+      if (!("geolocation" in navigator)) {
+        return alert("Geolocation not available on this device.");
+      }
 
-      await new Promise<void>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          () => resolve(),
-          (err) => reject(err),
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-        );
+      console.log('=== STARTING JOB COMPLETION ===');
+      console.log('Job ID:', jobId);
+
+      // Get worker's current location
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 10000
+        });
       });
 
-      // TODO: implement your edge function / RPC. Example call:
-      // const { error } = await supabase.rpc("worker_mark_complete", { p_job_id: jobId });
-      // if (error) throw error;
+      const workerLat = position.coords.latitude;
+      const workerLng = position.coords.longitude;
 
-      alert("Submitted completion request (demo)."); // keep UI feedback for MVP
+      console.log('Worker location:', { workerLat, workerLng });
+
+      // FIRST: Update job status to completed
+      console.log('Updating job status to completed...');
+      const { error: updateError } = await supabase
+        .from("jobs")
+        .update({ status: "completed" })
+        .eq("id", jobId);
+
+      if (updateError) {
+        console.error('Error updating job status:', updateError);
+        throw updateError;
+      }
+
+      console.log('✅ Job status updated to completed');
+
+      // Wait for database to propagate
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      // THEN: Validate payment conditions
+      console.log('Calling payment validation API...');
+      const validationRes = await fetch("/api/validate-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jobId,
+          workerLat,
+          workerLng,
+          businessApproval: false
+        }),
+      });
+
+      console.log('Validation response status:', validationRes.status);
+
+      if (!validationRes.ok) {
+        const errorText = await validationRes.text();
+        console.error('Validation request failed:', errorText);
+        throw new Error("Payment validation request failed");
+      }
+
+      const validation = await validationRes.json();
+      console.log('Validation result:', validation);
+
+      if (!validation.valid) {
+        const errorMessage = `Job marked as complete, but payment cannot be released:\n\n${validation.errors.join("\n")}\n\nPlease contact the business for manual approval.`;
+        console.error('Validation failed:', errorMessage);
+        alert(errorMessage);
+        await reloadJobs();
+        return;
+      }
+
+      // Success!
+      console.log('✅ Validation passed!');
+      if (validation.released) {
+        alert("Job completed and payment released automatically! 🎉");
+      } else if (validation.autoRelease) {
+        alert("Job marked as complete! Payment will be released automatically.");
+      } else {
+        alert("Job marked as complete! Waiting for business approval.");
+      }
+
+      await reloadJobs();
+      console.log('=== JOB COMPLETION FINISHED ===');
     } catch (e: any) {
-      console.error(e);
+      console.error('❌ Error in markFinished:', e);
       alert(e?.message || "Could not mark as finished.");
     }
   };
-
-  if (loading) {
-    return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-xl text-gray-600">Loading dashboard…</div>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-blue-50/40">
@@ -234,11 +310,10 @@ export default function WorkerDashboardPage() {
           <nav className="w-full flex md:flex-col gap-2 items-center md:items-stretch">
             <button
               onClick={() => router.push("/dashboard/worker")}
-              className={`w-full p-3 rounded-lg text-left transition-colors ${
-                typeof window !== "undefined" && window.location.pathname === "/dashboard/worker"
-                  ? "bg-blue-100 text-blue-700"
-                  : "hover:bg-gray-50"
-              }`}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${typeof window !== "undefined" && window.location.pathname === "/dashboard/worker"
+                ? "bg-blue-100 text-blue-700"
+                : "hover:bg-gray-50"
+                }`}
             >
               Home
             </button>
@@ -290,21 +365,19 @@ export default function WorkerDashboardPage() {
 
             <button
               onClick={() => router.push("/dashboard/profile")}
-              className={`w-full p-3 rounded-lg text-left transition-colors ${
-                typeof window !== "undefined" && window.location.pathname === "/dashboard/profile"
-                  ? "bg-blue-100 text-blue-700"
-                  : "hover:bg-gray-50"
-              }`}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${typeof window !== "undefined" && window.location.pathname === "/dashboard/profile"
+                ? "bg-blue-100 text-blue-700"
+                : "hover:bg-gray-50"
+                }`}
             >
               Profile
             </button>
             <button
               onClick={() => router.push("/dashboard/settings")}
-              className={`w-full p-3 rounded-lg text-left transition-colors ${
-                typeof window !== "undefined" && window.location.pathname === "/dashboard/settings"
-                  ? "bg-blue-100 text-blue-700"
-                  : "hover:bg-gray-50"
-              }`}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${typeof window !== "undefined" && window.location.pathname === "/dashboard/settings"
+                ? "bg-blue-100 text-blue-700"
+                : "hover:bg-gray-50"
+                }`}
             >
               Settings
             </button>
