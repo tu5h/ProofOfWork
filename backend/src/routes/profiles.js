@@ -282,4 +282,156 @@ router.post('/profiles/:id/verify-identity', async (req, res) => {
   }
 });
 
+// Wallet connection endpoint
+router.post('/wallet/connect', async (req, res) => {
+  try {
+    const { accountAddress } = req.body;
+    
+    if (!accountAddress) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account address is required'
+      });
+    }
+
+    // Verify wallet connection
+    const identityResult = await concordiumService.verifyIdentity(accountAddress);
+    
+    if (!identityResult.verified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid wallet connection',
+        error: identityResult.error
+      });
+    }
+
+    // Get current balance
+    const balance = await concordiumService.getBalance(accountAddress);
+    
+    // Distribute POW tokens for testing (simulated)
+    const testPOWAmount = 1000;
+    const distributionResult = {
+      transactionHash: `pow_distribution_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      amount: testPOWAmount,
+      recipient: accountAddress,
+      token: 'POW',
+      network: 'local',
+      note: 'POW tokens distributed for testing'
+    };
+
+    res.json({
+      success: true,
+      message: 'Wallet connected successfully',
+      data: {
+        account: {
+          address: accountAddress,
+          balance: balance,
+          powTokens: testPOWAmount,
+          network: 'local',
+          verified: true
+        },
+        distribution: distributionResult,
+        services: {
+          node: 'http://localhost:20100',
+          walletProxy: 'http://localhost:7013',
+          explorer: 'http://localhost:7016',
+          metadata: 'http://localhost:7020'
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Wallet connection failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Wallet connection failed',
+      error: error.message
+    });
+  }
+});
+
+// Get POW token balance
+router.get('/wallet/pow-balance/:accountAddress', async (req, res) => {
+  try {
+    const { accountAddress } = req.params;
+    
+    if (!accountAddress) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account address is required'
+      });
+    }
+    
+    const balance = await concordiumService.getBalance(accountAddress);
+    
+    res.json({
+      success: true,
+      data: {
+        account: accountAddress,
+        balance: balance,
+        powTokens: 1000, // Simulated POW tokens for testing
+        network: 'local',
+        currency: 'POW',
+        realTime: true
+      }
+    });
+
+  } catch (error) {
+    console.error('Failed to get POW balance:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get POW balance',
+      error: error.message
+    });
+  }
+});
+
+// Distribute POW tokens for testing
+router.post('/wallet/distribute-pow', async (req, res) => {
+  try {
+    const { accountAddress, amount = 1000 } = req.body;
+    
+    if (!accountAddress) {
+      return res.status(400).json({
+        success: false,
+        message: 'Account address is required'
+      });
+    }
+
+    // Verify account exists
+    const identityResult = await concordiumService.verifyIdentity(accountAddress);
+    if (!identityResult.verified) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid account address'
+      });
+    }
+
+    // Simulate POW token distribution
+    const distributionResult = {
+      transactionHash: `pow_distribution_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      amount: amount,
+      recipient: accountAddress,
+      token: 'POW',
+      network: 'local',
+      status: 'completed',
+      note: 'POW tokens distributed for testing'
+    };
+
+    res.json({
+      success: true,
+      message: 'POW tokens distributed successfully',
+      data: distributionResult
+    });
+
+  } catch (error) {
+    console.error('POW distribution failed:', error);
+    res.status(500).json({
+      success: false,
+      message: 'POW distribution failed',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

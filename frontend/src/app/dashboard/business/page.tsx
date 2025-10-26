@@ -1,46 +1,97 @@
+// app/business_dashboard/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 type UUID = string;
 
 type Profile = {
   id: UUID;
-  role?: "business" | "worker" | "admin" | null;
-  display_name?: string | null;
-  concordium_account?: string | null;
-  concordium_did?: boolean | null;
-  business?: { id: UUID; company_name: string } | null;
+  display_name: string | null;
+  concordium_did: boolean | null;
 };
 
-type Worker = { id: UUID; display_name?: string | null };
+type Business = {
+  id: UUID;
+  company_name: string;
+};
+
+type Escrow = {
+  status: "none" | "held" | "released" | "failed";
+  tx_hash: string | null;
+  simulated: boolean | null;
+  updated_at: string | null;
+};
 
 type JobStatus = "open" | "in_progress" | "completed" | "paid" | "cancelled";
-type EscrowStatus = "none" | "held" | "released" | "failed";
 
 type Job = {
   id: UUID;
   business_id: UUID;
-  worker_id?: UUID | null;
-  title?: string | null;
-  description?: string | null;
-  amount_plt?: number | null;
-  location?: { lat: number; lng: number } | null;
-  radius_m?: number | null;
+  worker_id: UUID | null;
+  title: string | null;
+  description: string | null;
+  amount_plt: number | null;
+  location: any | null; // PostGIS / user-defined
+  radius_m: number | null;
   status: JobStatus;
-  created_at?: string | null;
-  updated_at?: string | null;
-  escrow?: { status: EscrowStatus; tx_hash?: string | null; simulated?: boolean | null; updated_at?: string | null } | null;
-  release_if_nearby?: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+  escrow?: Escrow | null;
 };
 
-async function fetchJSON<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
-  let data: any = null;
-  try { data = await res.json(); } catch {}
-  if (!res.ok) throw new Error(data?.message || `Request failed: ${res.status}`);
-  return data as T;
+type WorkerLite = {
+  id: UUID;
+  display_name: string | null;
+};
+
+function toLatLng(loc: any): { lat?: number; lng?: number } {
+  // Handle PostGIS WKB binary format (hex string)
+  if (typeof loc === "string" && loc.startsWith("0101000020E6100000")) {
+    try {
+      // Extract the coordinate bytes from the WKB
+      // WKB format: 0101000020E6100000 + 16 bytes for coordinates (8 bytes each for lng, lat)
+      const coordBytes = loc.slice(18); // Remove the header
+      
+      // Convert hex to bytes and parse as double precision floats
+      const lngHex = coordBytes.slice(0, 16);
+      const latHex = coordBytes.slice(16, 32);
+      
+      // Convert from little-endian hex to double (browser-compatible)
+      const lngBytes = new Uint8Array(8);
+      const latBytes = new Uint8Array(8);
+      
+      for (let i = 0; i < 8; i++) {
+        lngBytes[i] = parseInt(lngHex.slice(i * 2, i * 2 + 2), 16);
+        latBytes[i] = parseInt(latHex.slice(i * 2, i * 2 + 2), 16);
+      }
+      
+      const lngView = new DataView(lngBytes.buffer);
+      const latView = new DataView(latBytes.buffer);
+      
+      const lng = lngView.getFloat64(0, true); // little-endian
+      const lat = latView.getFloat64(0, true); // little-endian
+      
+      return { lat, lng };
+    } catch (err) {
+      console.error('Error parsing WKB location:', err);
+    }
+  }
+  
+  // Handles PostGIS GeoJSON: { type: 'Point', coordinates: [lng, lat] }
+  if (loc && typeof loc === "object") {
+    if (Array.isArray(loc.coordinates) && loc.coordinates.length >= 2) {
+      const [lng, lat] = loc.coordinates;
+      return { lat: typeof lat === "number" ? lat : undefined, lng: typeof lng === "number" ? lng : undefined };
+    }
+    // Plain { lat, lng }
+    if (typeof loc.lat === "number" && typeof loc.lng === "number") {
+      return { lat: loc.lat, lng: loc.lng };
+    }
+  }
+  return {};
 }
 
 export default function BusinessDashboardPage() {
@@ -48,61 +99,199 @@ export default function BusinessDashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [business, setBusiness] = useState<Business | null>(null);
+  const [workers, setWorkers] = useState<WorkerLite[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  const businessId = useMemo(() => profile?.business?.id ?? null, [profile]);
+  const businessId = useMemo(() => business?.id ?? null, [business]);
 
+  // Load everything via browser Supabase (auth persisted in localStorage)
   useEffect(() => {
     (async () => {
       try {
-        const me = await fetchJSON<Profile>("/api/me");
-        setProfile(me);
-        const ws = await fetchJSON<Worker[]>("/api/workers");
-        setWorkers(ws);
-        if (me.business?.id) {
-          const js = await fetchJSON<Job[]>(`/api/jobs?businessId=${me.business.id}`);
-          setJobs(js);
+        // 1) Who's logged in?
+        const { data: auth } = await supabase.auth.getUser();
+        const currentUserId = auth.user?.id;
+        if (!currentUserId) {
+          router.push("/login");
+          return;
         }
-      } catch (err: any) {
-        alert(err.message || "Failed to load dashboard");
+        setUserId(currentUserId);
+
+        // 2) Load profile
+        console.log('Loading profile for user:', currentUserId);
+        const { data: prof, error: profErr } = await supabase
+          .from("profiles")
+          .select("id, display_name, concordium_did")
+          .eq("id", currentUserId)
+          .maybeSingle();
+        if (profErr) {
+          console.error('Profile error:', profErr);
+        }
+        console.log('Profile loaded:', prof);
+        setProfile(prof as Profile);
+
+        // 3) Business row (businesses.id references profiles.id)
+        console.log('Loading business for user:', currentUserId);
+        const { data: biz, error: bizErr } = await supabase
+          .from("businesses")
+          .select("id, company_name")
+          .eq("id", currentUserId)
+          .maybeSingle();
+        if (bizErr) {
+          console.error('Business error:', bizErr);
+        }
+        console.log('Business loaded:', biz);
+        setBusiness(biz as Business);
+
+        // 4) Workers list (to populate Assign dropdown)
+        //   Get workers from workers table and join with profiles for display names
+        console.log('Loading workers...');
+        
+        const { data: workerRows, error: workersError } = await supabase
+          .from("workers")
+          .select("id");
+        
+        if (workersError) {
+          console.error('Workers error:', workersError);
+        }
+
+        console.log('Worker IDs:', workerRows);
+
+        // Now get the display names from profiles using the worker IDs
+        if (workerRows && workerRows.length > 0) {
+          const workerIds = workerRows.map(w => w.id);
+          
+          const { data: profileRows, error: profileError } = await supabase
+            .from("profiles")
+            .select("id, display_name")
+            .in("id", workerIds);
+
+          if (profileError) {
+            console.error('Profile error:', profileError);
+          }
+
+          console.log('Profile rows:', profileRows);
+
+          // Map workers with their names
+          const ws: WorkerLite[] = workerRows.map((w: any) => {
+            const profile = profileRows?.find(p => p.id === w.id);
+            return {
+              id: w.id,
+              display_name: profile?.display_name || null,
+            };
+          });
+          
+          console.log('Final mapped workers:', ws);
+          setWorkers(ws);
+        } else {
+          setWorkers([]);
+        }
+
+
+        // 5) Jobs for this business (plus escrow via related row)
+        //    Use currentUserId directly as business_id since create job page uses auth.user.id
+        console.log('Loading jobs for business:', currentUserId);
+        const { data: jobRows, error: jErr } = await supabase
+          .from("jobs")
+          .select(
+            "id, business_id, worker_id, title, description, amount_plt, location, radius_m, status, created_at, updated_at"
+          )
+          .eq("business_id", currentUserId)
+          .order("created_at", { ascending: false });
+        if (jErr) {
+          console.error('Jobs error:', jErr);
+          throw jErr;
+        }
+
+        console.log('Raw job rows from Supabase:', jobRows);
+        let jobsOut: Job[] = jobRows as Job[];
+        console.log('Jobs after casting:', jobsOut);
+
+        // Escrow rows keyed by job_id
+        const jobIds = jobsOut.map((j) => j.id);
+        if (jobIds.length) {
+          console.log('Loading escrows for jobs:', jobIds);
+          const { data: escrows, error: eErr } = await supabase
+            .from("escrows")
+            .select("job_id, status, tx_hash, simulated, updated_at")
+            .in("job_id", jobIds);
+          if (eErr) {
+            console.error('Escrows error:', eErr);
+            throw eErr;
+          }
+
+          const escrowByJob = new Map<string, Escrow>();
+          (escrows || []).forEach((e: any) => {
+            escrowByJob.set(e.job_id, {
+              status: e.status,
+              tx_hash: e.tx_hash,
+              simulated: e.simulated,
+              updated_at: e.updated_at,
+            });
+          });
+          jobsOut = jobsOut.map((j) => ({ ...j, escrow: escrowByJob.get(j.id) || null }));
+        }
+
+        console.log('Final jobs array:', jobsOut);
+        setJobs(jobsOut);
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+        console.error('Error details:', JSON.stringify(err, null, 2));
+        // Soft-fail: render empty state; you can add a toast if you want
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [router]);
 
   const reloadJobs = async () => {
-    if (!businessId) return;
-    const js = await fetchJSON<Job[]>(`/api/jobs?businessId=${businessId}`);
-    setJobs(js);
+    if (!userId) return;
+    const { data: jobRows } = await supabase
+      .from("jobs")
+      .select(
+        "id, business_id, worker_id, title, description, amount_plt, location, radius_m, status, created_at, updated_at"
+      )
+      .eq("business_id", userId)
+      .order("created_at", { ascending: false });
+
+    let jobsOut: Job[] = (jobRows as Job[]) || [];
+    const jobIds = jobsOut.map((j) => j.id);
+    if (jobIds.length) {
+      const { data: escrows } = await supabase
+        .from("escrows")
+        .select("job_id, status, tx_hash, simulated, updated_at")
+        .in("job_id", jobIds);
+
+      const escrowByJob = new Map<string, Escrow>();
+      (escrows || []).forEach((e: any) => {
+        escrowByJob.set(e.job_id, {
+          status: e.status,
+          tx_hash: e.tx_hash,
+          simulated: e.simulated,
+          updated_at: e.updated_at,
+        });
+      });
+      jobsOut = jobsOut.map((j) => ({ ...j, escrow: escrowByJob.get(j.id) || null }));
+    }
+    setJobs(jobsOut);
   };
 
-  const handleAssignWorker = async (jobId: UUID, workerId: UUID) => {
-    await fetchJSON(`/api/jobs/${jobId}/assign-worker`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ worker_id: workerId || null }),
-    });
+  const handleAssignWorker = async (jobId: UUID, workerId: UUID | "") => {
+    await supabase
+      .from("jobs")
+      .update({ worker_id: workerId || null })
+      .eq("id", jobId);
     await reloadJobs();
   };
 
-  const handleSimulateEscrowRelease = async (jobId: UUID) => {
-    const res = await fetchJSON<{ status: string; tx_hash?: string }>(`/api/escrow/release`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job_id: jobId, simulate: true }),
-    });
-    alert(`Escrow ${res.status}${res.tx_hash ? ` • tx: ${res.tx_hash}` : ""}`);
-    await reloadJobs();
-  };
 
-  const handleToggleReleaseIfNearby = async (jobId: UUID, value: boolean) => {
-    await fetchJSON(`/api/jobs/${jobId}/release-if-nearby`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ release_if_nearby: value }),
-    });
+  const handleSimulateEscrow = async (jobId: UUID) => {
+    // For demo purposes: upsert an escrow row to “released” (simulated)
+    await supabase
+      .from("escrows")
+      .upsert({ job_id: jobId, status: "released", simulated: true, tx_hash: "0xSIMULATED" }, { onConflict: "job_id" });
     await reloadJobs();
   };
 
@@ -120,7 +309,10 @@ export default function BusinessDashboardPage() {
         <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl p-10 text-center">
           <h2 className="text-3xl font-bold mb-4">No Business Profile</h2>
           <p className="text-gray-600 mb-6">You’re logged in, but no business profile was found.</p>
-          <a href="/register" className="bg-green-600 text-white py-3 px-6 rounded-lg text-lg hover:bg-blue-700 transition inline-block">
+          <a
+            href="/register"
+            className="bg-green-600 text-white py-3 px-6 rounded-lg text-lg hover:bg-blue-700 transition inline-block"
+          >
             Create Business Profile
           </a>
         </div>
@@ -140,10 +332,15 @@ export default function BusinessDashboardPage() {
 
           <div className="w-full mt-2">
             <div className="bg-blue-50 rounded-xl p-4">
-              <h3 className="text-lg font-bold">{profile?.business?.company_name || "Your Company"}</h3>
+              <h3 className="text-lg font-bold">{business?.company_name || "Your Company"}</h3>
               <p className="text-sm text-gray-600">Owner: {profile?.display_name || "—"}</p>
               <p className="text-xs text-gray-600">
-                DID: <span className={profile?.concordium_did ? "text-green-600 font-semibold" : "text-red-600 font-semibold"}>
+                DID:{" "}
+                <span
+                  className={
+                    profile?.concordium_did ? "text-green-600 font-semibold" : "text-red-600 font-semibold"
+                  }
+                >
                   {profile?.concordium_did ? "Verified" : "Not verified"}
                 </span>
               </p>
@@ -151,37 +348,44 @@ export default function BusinessDashboardPage() {
           </div>
 
           <nav className="w-full flex md:flex-col gap-2">
-            <button 
-              onClick={() => router.push("/dashboard/business")}
+            <a 
               className={`w-full p-3 rounded-lg text-left transition-colors ${
-                typeof window !== 'undefined' && window.location.pathname === "/dashboard/business" 
-                  ? "bg-blue-100 text-blue-700" 
-                  : "hover:bg-gray-50"
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/business"
+                  ? "bg-blue-100 text-blue-700"
+                  : "border border-gray-200 hover:bg-gray-50"
               }`}
+              href="/dashboard/business"
             >
               Home
-            </button>
-            <button 
-              onClick={() => router.push("/dashboard/profile")}
+            </a>
+            <a 
               className={`w-full p-3 rounded-lg text-left transition-colors ${
-                typeof window !== 'undefined' && window.location.pathname === "/dashboard/profile" 
-                  ? "bg-blue-100 text-blue-700" 
-                  : "hover:bg-gray-50"
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/profile"
+                  ? "bg-blue-100 text-blue-700"
+                  : "border border-gray-200 hover:bg-gray-50"
               }`}
+              href="/dashboard/profile"
             >
               Profile
-            </button>
-            <button 
-              onClick={() => router.push("/dashboard/settings")}
+            </a>
+            <a 
               className={`w-full p-3 rounded-lg text-left transition-colors ${
-                typeof window !== 'undefined' && window.location.pathname === "/dashboard/settings" 
-                  ? "bg-blue-100 text-blue-700" 
-                  : "hover:bg-gray-50"
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/settings"
+                  ? "bg-blue-100 text-blue-700"
+                  : "border border-gray-200 hover:bg-gray-50"
               }`}
+              href="/dashboard/settings"
             >
               Settings
-            </button>
-            <a href="/dashboard/business/create_job" className="w-full bg-green-600 text-white p-3 rounded-lg hover:bg-blue-700 transition text-center">
+            </a>
+            <a
+              href="/dashboard/business/create_job"
+              className={`w-full p-3 rounded-lg transition text-center ${
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/business/create_job"
+                  ? "bg-blue-600 text-white"
+                  : "bg-green-600 text-white hover:bg-blue-700"
+              }`}
+            >
               + Create Job
             </a>
           </nav>
@@ -192,78 +396,107 @@ export default function BusinessDashboardPage() {
           <div className="max-w-4xl mx-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-3xl md:text-4xl font-bold">Jobs</h2>
-              <div className="flex items-center gap-2">
-                <a href="/dashboard/business/create_job" className="hidden md:inline-block bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition">
-                  + Create Job
-                </a>
-                <button className="text-sm text-blue-600 underline" onClick={reloadJobs}>Refresh</button>
-              </div>
+              <a
+                href="/dashboard/business/create_job"
+                className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition"
+              >
+                + Create Job
+              </a>
             </div>
 
             {jobs.length === 0 ? (
               <div className="bg-white rounded-2xl shadow-xl p-10 text-center">
                 <p className="text-gray-600 mb-4">No jobs yet.</p>
-                <a href="/dashboard/business/create_job" className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition inline-block">
+                <a
+                  href="/dashboard/business/create_job"
+                  className="bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-blue-700 transition inline-block"
+                >
                   Create your first job
                 </a>
               </div>
             ) : (
               <ul className="flex flex-col gap-4">
-                {jobs.map((job) => (
-                  <li key={job.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="text-xl font-bold">{job.title || "Untitled job"}</h3>
-                        <p className="text-gray-600">{job.description || "—"}</p>
-                        <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
-                          <div><span className="text-gray-500">Amount (PLT): </span><span className="font-semibold">{job.amount_plt ?? "—"}</span></div>
-                          <div><span className="text-gray-500">Radius (m): </span><span className="font-semibold">{job.radius_m ?? "—"}</span></div>
-                          <div><span className="text-gray-500">Status: </span><span className="font-semibold capitalize">{job.status}</span></div>
-                          <div className="col-span-2"><span className="text-gray-500">Location: </span><span className="font-mono">{job.location ? `${job.location.lat}, ${job.location.lng}` : "—"}</span></div>
-                          <div><span className="text-gray-500">Worker: </span><span className="font-semibold">{job.worker_id ? (workers.find((w) => w.id === job.worker_id)?.display_name || job.worker_id) : "Unassigned"}</span></div>
-                          <div><span className="text-gray-500">Escrow: </span><span className="font-semibold">{job.escrow?.status ?? "none"}</span></div>
+                {jobs.map((job) => {
+                  console.log('Job location data:', job.location);
+                  const { lat, lng } = toLatLng(job.location);
+                  console.log('Parsed lat/lng:', { lat, lng });
+                  const workerName =
+                    job.worker_id && workers.find((w) => w.id === job.worker_id)?.display_name;
+
+                  return (
+                    <li key={job.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                        <div className="flex-1">
+                          <h3 className="text-xl font-bold">{job.title || "Untitled job"}</h3>
+                          <p className="text-gray-600">{job.description || "—"}</p>
+
+                          <div className="mt-3 grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                            <div>
+                              <span className="text-gray-500">Amount (PLT): </span>
+                              <span className="font-semibold">{job.amount_plt ?? "—"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Radius (m): </span>
+                              <span className="font-semibold">{job.radius_m ?? "—"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Status: </span>
+                              <span className="font-semibold capitalize">{job.status}</span>
+                            </div>
+                            <div className="col-span-2">
+                              <span className="text-gray-500">Location: </span>
+                              <span className="font-mono">
+                                {lat !== undefined && lng !== undefined ? `${lat.toFixed(3)}, ${lng.toFixed(3)}` : "—"}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Worker: </span>
+                              <span className="font-semibold">{workerName || "Unassigned"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Escrow: </span>
+                              <span className="font-semibold">{job.escrow?.status ?? "none"}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Right controls */}
+                        <div className="w-full md:w-60 shrink-0 flex flex-col gap-2">
+                          <select
+                            className="border border-gray-300 p-2 rounded-lg text-sm"
+                            value={job.worker_id || ""}
+                            onChange={(e) => handleAssignWorker(job.id, e.target.value as UUID)}
+                          >
+                            <option value="">Assign worker...</option>
+                            {workers.map((w) => (
+                              <option key={w.id} value={w.id}>
+                                {w.display_name || `Worker ${w.id.slice(0, 8)}`}
+                              </option>
+                            ))}
+                          </select>
+
+                          <button
+                            className="bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition"
+                            onClick={() => handleSimulateEscrow(job.id)}
+                          >
+                            Simulate Release
+                          </button>
+
+                          <a
+                            href={`/jobs/${job.id}`}
+                            className="text-center border border-gray-300 py-2 rounded-lg text-sm hover:bg-gray-50"
+                          >
+                            View Job
+                          </a>
+
+                          {job.escrow?.tx_hash ? (
+                            <p className="text-xs text-gray-500 mt-2 break-all">tx: {job.escrow.tx_hash}</p>
+                          ) : null}
                         </div>
                       </div>
-
-                      <div className="w-full md:w-60 shrink-0 flex flex-col gap-2">
-                        <label className="flex items-center gap-2 border border-gray-200 p-2 rounded-lg">
-                          <input
-                            type="checkbox"
-                            checked={!!job.release_if_nearby}
-                            onChange={(e) => handleToggleReleaseIfNearby(job.id, e.target.checked)}
-                          />
-                          <span className="text-sm">Release payment if worker is nearby</span>
-                        </label>
-
-                        <select
-                          className="border border-gray-300 p-2 rounded-lg text-sm"
-                          value={job.worker_id || ""}
-                          onChange={(e) => handleAssignWorker(job.id, e.target.value as UUID)}
-                        >
-                          <option value="">Assign worker…</option>
-                          {workers.map((w) => (
-                            <option key={w.id} value={w.id}>{w.display_name || w.id}</option>
-                          ))}
-                        </select>
-
-                        <button
-                          className="bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-                          onClick={() => handleSimulateEscrowRelease(job.id)}
-                        >
-                          Simulate Release
-                        </button>
-
-                        <a href={`/jobs/${job.id}`} className="text-center border border-gray-300 py-2 rounded-lg text-sm hover:bg-gray-50">
-                          View Job
-                        </a>
-                      </div>
-                    </div>
-
-                    {job.escrow?.tx_hash ? (
-                      <p className="text-xs text-gray-500 mt-2 break-all">tx: {job.escrow.tx_hash}</p>
-                    ) : null}
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>

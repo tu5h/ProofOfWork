@@ -32,8 +32,8 @@ describe('Infrastructure Tests', () => {
         message: 'ProofOfWork API is running',
         environment: 'test',
         concordium: {
-          network: 'testnet',
-          nodeUrl: 'https://testnet.concordium.com'
+          network: 'local',
+          nodeUrl: 'http://localhost:20100'
         }
       });
     });

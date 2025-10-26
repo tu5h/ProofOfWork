@@ -7,7 +7,7 @@ import { Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
@@ -19,28 +19,76 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+      let loginEmail = emailOrUsername;
+
+      // Check if input is an email or username
+      const isEmail = emailOrUsername.includes("@");
+
+      // If it's not an email, look up the email by username
+      if (!isEmail) {
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("id")
+          .eq("display_name", emailOrUsername)
+          .single();
+
+        if (profileError || !profileData) {
+          setError("Invalid username or password");
+          setLoading(false);
+          return;
+        }
+
+        // Get the user's email from auth.users via RPC
+        const { data: emailData, error: emailError } = await supabase
+          .rpc('get_email_by_user_id', { user_id: profileData.id });
+
+        if (emailError || !emailData) {
+          setError("Invalid username or password");
+          setLoading(false);
+          return;
+        }
+
+        loginEmail = emailData;
+      }
+
+      // Login with email
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
         password,
       });
 
-      if (error) {
-        setError(error.message);
+      if (authError) {
+        setError("Invalid email/username or password");
+        setLoading(false);
         return;
       }
 
-      // Get account type from user metadata
-      const accountType = data.user?.user_metadata?.account_type || "worker";
+      // Get user's role from profiles table
+      const { data: profileData, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", authData.user.id)
+        .single();
 
-      // Redirect based on account type
-      if (accountType === "business") {
-        router.push("/dashboard/business");
-      } else {
-        router.push("/dashboard/worker");
+      if (profileError || !profileData) {
+        console.error("Failed to fetch user profile:", profileError);
+        setError("Login successful but failed to load profile. Please try again.");
+        setLoading(false);
+        return;
       }
 
-      router.refresh();
-    } catch (err) {
+      // Redirect based on role
+      if (profileData.role === "business") {
+        router.push("/dashboard/business");
+      } else if (profileData.role === "worker") {
+        router.push("/dashboard/worker");
+      } else {
+        // Fallback to generic dashboard
+        router.push("/dashboard");
+      }
+
+    } catch (err: any) {
+      console.error("Login error:", err);
       setError("An error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -72,11 +120,11 @@ export default function LoginPage() {
 
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <input
-              type="email"
+              type="text"
               className="border border-gray-300 p-3 rounded-lg text-lg text-gray-900"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Email or Username"
+              value={emailOrUsername}
+              onChange={(e) => setEmailOrUsername(e.target.value)}
               required
             />
 
@@ -107,7 +155,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="bg-green-600 text-white py-3 rounded-lg text-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-blue-600 text-white py-3 rounded-lg text-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? "Logging in..." : "Login"}
             </button>
@@ -116,7 +164,7 @@ export default function LoginPage() {
           <p className="mt-6 text-gray-600 text-center text-base">
             Don't have an account?{" "}
             <a href="/register" className="text-blue-600 hover:underline">
-              Register here
+              Register
             </a>
           </p>
         </div>

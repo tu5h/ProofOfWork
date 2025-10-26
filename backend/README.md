@@ -1,10 +1,10 @@
 # ProofOfWork Backend
 
-A location-verified payment platform built for the Concordium hackathon. This backend provides a robust API for managing location-based jobs with automatic payment release using Concordium blockchain technology.
+Backend provides a robust API for managing location-based jobs with automatic payment release using Concordium blockchain technology.
 
 ## 🚀 Features
 
-- **Real Concordium Integration**: Uses Concordium local stack for instant transactions
+- **Real Concordium Integration**: Uses Concordium local stack for instant transactions - https://github.com/Concordium/concordium-local-stack
 - **Location Verification**: GPS-based verification with blockchain proof
 - **Smart Contract Integration**: PLT token escrow system
 - **Comprehensive Testing**: Full test suite with Jest
@@ -158,6 +158,3 @@ backend/
 - [Testing Guide](TESTING.md)
 - [Backend Architecture](backend_README.md)
 
----
-
-**🎉 Ready to win the hackathon!** This backend provides everything you need for a professional blockchain-based location verification platform.

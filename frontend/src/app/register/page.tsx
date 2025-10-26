@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
+  const [businessName, setBusinessName] = useState("");
   const [password, setPassword] = useState("");
   const [accountType, setAccountType] = useState<"business" | "worker">("worker");
   const [showPassword, setShowPassword] = useState(false);
@@ -19,6 +20,19 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
+
+    // Validate required fields based on account type
+    if (accountType === "worker" && !username.trim()) {
+      setError("Username is required for worker accounts.");
+      setLoading(false);
+      return;
+    }
+
+    if (accountType === "business" && !businessName.trim()) {
+      setError("Business name is required for business accounts.");
+      setLoading(false);
+      return;
+    }
 
     const passwordRequirements = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
 
@@ -31,26 +45,31 @@ export default function RegisterPage() {
     }
 
     try {
-      // Register with Supabase and store account type
-      const { data, error } = await supabase.auth.signUp({
+      const displayName = accountType === "business" 
+        ? businessName.trim() 
+        : username.trim();
+
+      // Step 1: Register with Supabase Auth WITH METADATA
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
-            username: username || email.split("@")[0],
+            username: displayName,
             account_type: accountType,
+            display_name: displayName,
           },
         },
       });
 
-      if (error) {
-        setError(error.message);
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
         return;
       }
 
       // Check if this is actually a new user or existing user
-      // Supabase returns identities array - empty means duplicate email
-      const isNewUser = data.user?.identities && data.user.identities.length > 0;
+      const isNewUser = authData.user?.identities && authData.user.identities.length > 0;
 
       if (!isNewUser) {
         setError("This email is already registered. Please login instead.");
@@ -58,7 +77,36 @@ export default function RegisterPage() {
         return;
       }
 
-      // Success - new user created
+      if (!authData.user) {
+        setError("Registration failed. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      // Step 2: Call API to create profile
+      const response = await fetch('/api/register/profile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: authData.user.id,
+          displayName: displayName,
+          role: accountType,
+          businessName: accountType === "business" ? businessName.trim() : null,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        console.error("Profile creation failed:", result);
+        setError(result.error || "Profile creation failed. Please contact support.");
+        setLoading(false);
+        return;
+      }
+
+      // Success
       alert("Registration successful! Please check your email to verify your account before logging in.");
       router.push("/login");
 
@@ -132,17 +180,31 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <input
-              type="text"
-              className="border border-gray-300 p-3 rounded-lg text-lg text-gray-900"
-              placeholder="Username (optional)"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
+            {/* Conditional input based on account type */}
+            {accountType === "worker" ? (
+              <input
+                type="text"
+                className="border border-gray-300 p-3 rounded-lg text-lg text-gray-900"
+                placeholder="Username *"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+              />
+            ) : (
+              <input
+                type="text"
+                className="border border-gray-300 p-3 rounded-lg text-lg text-gray-900"
+                placeholder="Business Name *"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                required
+              />
+            )}
+
             <input
               type="email"
               className="border border-gray-300 p-3 rounded-lg text-lg text-gray-900"
-              placeholder="Email"
+              placeholder="Email *"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -153,7 +215,7 @@ export default function RegisterPage() {
               <input
                 type={showPassword ? "text" : "password"}
                 className="border border-gray-300 p-3 pr-12 rounded-lg text-lg text-gray-900 w-full"
-                placeholder="Password"
+                placeholder="Password *"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required

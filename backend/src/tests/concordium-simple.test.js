@@ -57,7 +57,7 @@ describe('Concordium Service Integration Tests', () => {
       );
 
       expect(result).toBeDefined();
-      expect(result.hash).toBeDefined();
+      expect(result.transactionHash).toBeDefined();
       expect(result.localStack).toBe(true);
     });
 
@@ -75,7 +75,7 @@ describe('Concordium Service Integration Tests', () => {
       );
 
       expect(result).toBeDefined();
-      expect(result.hash).toBeDefined();
+      expect(result.transactionHash).toBeDefined();
       expect(result.localStack).toBe(true);
     });
   });
