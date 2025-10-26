@@ -4,8 +4,8 @@ import Navbar from '@/components/navbar';
 import Footer from '@/components/footer';
 
 export const metadata: Metadata = {
-  title: 'ProofOfWork - Location-Verified Payment Platform',
-  description: 'Secure geo-location verification for businesses using blockchain technology',
+  title: 'ProofOfWork',
+  description: 'Secure geo-location verification for businesses',
 };
 
 export default function RootLayout({
