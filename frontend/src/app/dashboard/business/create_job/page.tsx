@@ -93,6 +93,7 @@ export default function CreateJobPage() {
     if (!postcode.trim()) return alert("Please enter a postcode");
     if (Number.isNaN(parsedRadius) || parsedRadius <= 0) return alert("Radius must be a positive number");
     if (!businessId) return alert("Not signed in");
+    if (!businessId) return alert("Not signed in");
 
     setBusy(true);
     try {
@@ -149,9 +150,13 @@ export default function CreateJobPage() {
 
       if (insertErr) throw insertErr;
 
+      if (insertErr) throw insertErr;
+
       alert("Job created successfully!");
       router.push("/dashboard/business");
+      router.push("/dashboard/business");
     } catch (err: any) {
+      console.error(err);
       console.error(err);
       alert(err?.message || "Something went wrong");
     } finally {
@@ -164,6 +169,7 @@ export default function CreateJobPage() {
       <div className="w-full max-w-2xl bg-white rounded-2xl shadow-xl p-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl md:text-4xl font-bold">Create Job</h1>
+          <a href="/dashboard/business" className="text-blue-600 hover:underline">Back to Dashboard</a>
           <a href="/dashboard/business" className="text-blue-600 hover:underline">Back to Dashboard</a>
         </div>
 

@@ -42,32 +42,32 @@ function toLatLng(loc: any): { lat?: number; lng?: number } {
       // Extract the coordinate bytes from the WKB
       // WKB format: 0101000020E6100000 + 16 bytes for coordinates (8 bytes each for lng, lat)
       const coordBytes = loc.slice(18); // Remove the header
-
+      
       // Convert hex to bytes and parse as double precision floats
       const lngHex = coordBytes.slice(0, 16);
       const latHex = coordBytes.slice(16, 32);
-
+      
       // Convert from little-endian hex to double (browser-compatible)
       const lngBytes = new Uint8Array(8);
       const latBytes = new Uint8Array(8);
-
+      
       for (let i = 0; i < 8; i++) {
         lngBytes[i] = parseInt(lngHex.slice(i * 2, i * 2 + 2), 16);
         latBytes[i] = parseInt(latHex.slice(i * 2, i * 2 + 2), 16);
       }
-
+      
       const lngView = new DataView(lngBytes.buffer);
       const latView = new DataView(latBytes.buffer);
-
+      
       const lng = lngView.getFloat64(0, true); // little-endian
       const lat = latView.getFloat64(0, true); // little-endian
-
+      
       return { lat, lng };
     } catch (err) {
       console.error('Error parsing WKB location:', err);
     }
   }
-
+  
   // Handles PostGIS GeoJSON: { type: 'Point', coordinates: [lng, lat] }
   if (loc && typeof loc === "object") {
     if (Array.isArray(loc.coordinates) && loc.coordinates.length >= 2) {
@@ -310,10 +310,11 @@ export default function WorkerDashboardPage() {
           <nav className="w-full flex md:flex-col gap-2 items-center md:items-stretch">
             <button
               onClick={() => router.push("/dashboard/worker")}
-              className={`w-full p-3 rounded-lg text-left transition-colors ${typeof window !== "undefined" && window.location.pathname === "/dashboard/worker"
-                ? "bg-blue-100 text-blue-700"
-                : "hover:bg-gray-50"
-                }`}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/worker"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-50"
+              }`}
             >
               Home
             </button>
@@ -365,19 +366,21 @@ export default function WorkerDashboardPage() {
 
             <button
               onClick={() => router.push("/dashboard/profile")}
-              className={`w-full p-3 rounded-lg text-left transition-colors ${typeof window !== "undefined" && window.location.pathname === "/dashboard/profile"
-                ? "bg-blue-100 text-blue-700"
-                : "hover:bg-gray-50"
-                }`}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/profile"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-50"
+              }`}
             >
               Profile
             </button>
             <button
               onClick={() => router.push("/dashboard/settings")}
-              className={`w-full p-3 rounded-lg text-left transition-colors ${typeof window !== "undefined" && window.location.pathname === "/dashboard/settings"
-                ? "bg-blue-100 text-blue-700"
-                : "hover:bg-gray-50"
-                }`}
+              className={`w-full p-3 rounded-lg text-left transition-colors ${
+                typeof window !== "undefined" && window.location.pathname === "/dashboard/settings"
+                  ? "bg-blue-100 text-blue-700"
+                  : "hover:bg-gray-50"
+              }`}
             >
               Settings
             </button>
