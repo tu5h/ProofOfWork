@@ -198,7 +198,7 @@ describe('Performance Tests', () => {
 
   describe('Concordium Service Performance', () => {
     test('should cache identity verification results', async () => {
-      const testAccount = '3tQNXbUExDuZMK4YDhMVTQNAcQqBMppHMN3sWG5z6c';
+      const testAccount = '3tefNN5UYD6p53pQJaPDb4aDDV3XgLS2pV5171rA5XvpFvo6qH';
       
       const concordiumService = require('../services/concordiumService');
       
@@ -212,10 +212,10 @@ describe('Performance Tests', () => {
       const result2 = await concordiumService.verifyIdentity(testAccount);
       const duration2 = Date.now() - startTime2;
       
-      // Both calls should return same result (account validation fails)
-      expect(result1.verified).toBe(false);
-      expect(result2.verified).toBe(false);
-      expect(result1.error).toBe(result2.error);
+      // Both calls should return same result (local stack accepts valid accounts)
+      expect(result1.verified).toBe(true);
+      expect(result2.verified).toBe(true);
+      expect(result1.accountInfo.address).toBe(result2.accountInfo.address);
       
       console.log(`First call: ${duration1}ms, Second call: ${duration2}ms`);
     });

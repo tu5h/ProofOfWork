@@ -3,12 +3,13 @@ const concordiumService = require('../services/concordiumService');
 describe('Concordium Service Unit Tests', () => {
   describe('Identity Verification', () => {
     test('should verify valid Concordium account', async () => {
-      const testAccount = '3tQNXbUExDuZMK4YDhMVTQNAcQqBMppHMN3sWG5z6c';
+      const testAccount = '3tefNN5UYD6p53pQJaPDb4aDDV3XgLS2pV5171rA5XvpFvo6qH';
       const result = await concordiumService.verifyIdentity(testAccount);
       
-      // Account format validation is strict (48-50 characters)
-      expect(result.verified).toBe(false); // This account is 48 chars, should be valid but validation is strict
-      expect(result.error).toBeDefined();
+      // Local stack service accepts valid accounts
+      expect(result.verified).toBe(true);
+      expect(result.accountInfo).toBeDefined();
+      expect(result.accountInfo.address).toBe(testAccount);
     });
 
     test('should reject invalid account format', async () => {
@@ -92,7 +93,7 @@ describe('Concordium Service Unit Tests', () => {
 
   describe('Caching', () => {
     test('should use caching for repeated requests', async () => {
-      const testAccount = '3tQNXbUExDuZMK4YDhMVTQNAcQqBMppHMN3sWG5z6c';
+      const testAccount = '3tefNN5UYD6p53pQJaPDb4aDDV3XgLS2pV5171rA5XvpFvo6qH';
       
       const startTime = Date.now();
       const result1 = await concordiumService.verifyIdentity(testAccount);
@@ -102,12 +103,12 @@ describe('Concordium Service Unit Tests', () => {
       const result2 = await concordiumService.verifyIdentity(testAccount);
       const secondCallTime = Date.now() - startTime2;
 
-      expect(result1.verified).toBe(false); // Account validation fails
-      expect(result2.verified).toBe(false); // Account validation fails
-      expect(result1.error).toBeDefined();
-      expect(result2.error).toBeDefined();
+      expect(result1.verified).toBe(true); // Local stack accepts valid accounts
+      expect(result2.verified).toBe(true); // Local stack accepts valid accounts
+      expect(result1.accountInfo).toBeDefined();
+      expect(result2.accountInfo).toBeDefined();
       // Both calls should return same result (cached)
-      expect(result1.error).toBe(result2.error);
+      expect(result1.accountInfo.address).toBe(result2.accountInfo.address);
     });
   });
 });
