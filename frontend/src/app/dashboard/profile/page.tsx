@@ -2,6 +2,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabaseClient";
 
 type UUID = string;
 
@@ -65,6 +66,92 @@ export default function DashboardProfilePage() {
   }, []);
 
   const unseenCount = useMemo(() => notifs.length, [notifs]);
+
+  // Handle Concordium account update
+  const handleUpdateConcordiumAccount = async () => {
+    try {
+      if (!ccd.trim()) {
+        alert("Please enter a Concordium account address");
+        return;
+      }
+
+      // Validate Concordium account format (rough validation)
+      if (ccd.length < 40 || ccd.length > 60) {
+        alert("Invalid Concordium account format");
+        return;
+      }
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Not authenticated");
+        return;
+      }
+
+      console.log('Updating Concordium account for user:', user.id);
+      console.log('New Concordium account:', ccd);
+
+      // Update profile with Concordium account
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          concordium_account: ccd.trim(),
+          concordium_did: true // Mark as verified
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Error updating Concordium account:', error);
+        alert(`Failed to update Concordium account: ${error.message}`);
+        return;
+      }
+
+      console.log('✅ Concordium account updated successfully');
+      
+      // Update local state
+      setProfile(prev => prev ? { ...prev, concordium_account: ccd, concordium_did: true } : null);
+      
+      alert("✅ Concordium account updated successfully!");
+      
+    } catch (error) {
+      console.error('Error in handleUpdateConcordiumAccount:', error);
+      alert(`Failed to update Concordium account: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  // Handle display name update
+  const handleUpdateDisplayName = async () => {
+    try {
+      if (!name.trim()) {
+        alert("Please enter a display name");
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Not authenticated");
+        return;
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({ display_name: name.trim() })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('Error updating display name:', error);
+        alert(`Failed to update display name: ${error.message}`);
+        return;
+      }
+
+      setProfile(prev => prev ? { ...prev, display_name: name } : null);
+      alert("✅ Display name updated successfully!");
+      
+    } catch (error) {
+      console.error('Error in handleUpdateDisplayName:', error);
+      alert(`Failed to update display name: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
 
   if (loading) {
     return (
@@ -188,7 +275,12 @@ export default function DashboardProfilePage() {
                 <input className="border border-gray-300 p-3 rounded-lg text-lg" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
 
                 <div className="flex justify-end mt-2">
-                  <button className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition">Save name</button>
+                  <button 
+                    onClick={handleUpdateDisplayName}
+                    className="bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition"
+                  >
+                    Save name
+                  </button>
                 </div>
               </div>
             </div>
@@ -212,7 +304,12 @@ export default function DashboardProfilePage() {
               <p className="text-gray-600 text-sm mb-3">Connect your Concordium ID to become verified.</p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <input className="border border-gray-300 p-3 rounded-lg text-lg md:col-span-2" placeholder="Concordium account address" value={ccd} onChange={(e) => setCcd(e.target.value)} />
-                <button className="bg-green-600 text-white py-3 rounded-lg text-lg hover:bg-blue-700 transition">Add / Verify</button>
+                <button 
+                  onClick={handleUpdateConcordiumAccount}
+                  className="bg-green-600 text-white py-3 rounded-lg text-lg hover:bg-blue-700 transition"
+                >
+                  Add / Verify
+                </button>
               </div>
               {profile?.concordium_did && (
                 <p className="text-sm text-green-700 mt-2">Status: Verified</p>

@@ -28,7 +28,6 @@ export async function middleware(request: NextRequest) {
       },
     }
   )
-  if (request.nextUrl.pathname.startsWith('/dashboard')) return supabaseResponse;
   // Check session
   const {
     data: { session },

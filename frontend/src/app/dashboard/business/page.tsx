@@ -287,12 +287,76 @@ export default function BusinessDashboardPage() {
   };
 
 
-  const handleSimulateEscrow = async (jobId: UUID) => {
-    // For demo purposes: upsert an escrow row to “released” (simulated)
-    await supabase
-      .from("escrows")
-      .upsert({ job_id: jobId, status: "released", simulated: true, tx_hash: "0xSIMULATED" }, { onConflict: "job_id" });
-    await reloadJobs();
+  const handleReleasePayment = async (jobId: UUID) => {
+    try {
+      const job = jobs.find(j => j.id === jobId);
+      if (!job) {
+        alert("Job not found");
+        return;
+      }
+
+      if (!job.worker_id) {
+        alert("No worker assigned to this job");
+        return;
+      }
+
+      // Get the worker's Concordium address from profile
+      const { data: workerProfile } = await supabase
+        .from("profiles")
+        .select("concordium_account")
+        .eq("id", job.worker_id)
+        .single();
+
+      const workerAddress = workerProfile?.concordium_account;
+      
+      if (!workerAddress) {
+        alert("Worker does not have a Concordium account set up");
+        return;
+      }
+
+      // Call backend to release payment
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/api/release-payment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jobId: jobId,
+          workerAddress: workerAddress,
+          amount: job.amount_plt,
+          workerLocation: { lat: 0, lng: 0 } // Will be verified by job location
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Payment release failed: ${error.error || error.message}`);
+        return;
+      }
+
+      const result = await response.json();
+      console.log('Payment release result:', result);
+
+      // Update escrow status in database
+      await supabase
+        .from("escrows")
+        .upsert({ 
+          job_id: jobId, 
+          status: result.success ? "released" : "failed",
+          simulated: false, 
+          tx_hash: result.transactionHash || "pending" 
+        }, { onConflict: "job_id" });
+
+      if (result.success) {
+        alert(`✅ Payment released successfully! Transaction: ${result.transactionHash}`);
+      } else {
+        alert(`Payment release initiated but may require confirmation: ${result.note}`);
+      }
+
+      await reloadJobs();
+    } catch (error) {
+      console.error('Payment release error:', error);
+      alert(`Failed to release payment: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   };
 
   if (loading) {
@@ -477,9 +541,9 @@ export default function BusinessDashboardPage() {
 
                           <button
                             className="bg-green-600 text-white py-2 rounded-lg text-sm hover:bg-blue-700 transition"
-                            onClick={() => handleSimulateEscrow(job.id)}
+                            onClick={() => handleReleasePayment(job.id)}
                           >
-                            Simulate Release
+                            Release Payment
                           </button>
 
                           <a

@@ -3,8 +3,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-// ⬇️ same client you use elsewhere (adjust path if yours lives in /lib)
 import { supabase } from "@/lib/supabaseClient";
+import { verifyLocation, releasePayment } from "@/lib/backendApi";
 
 type UUID = string;
 
